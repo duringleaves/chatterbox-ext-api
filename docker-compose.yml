@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  chatterbox-api:
+    build: .
+    image: chatterbox-tts-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      # Extend or override as needed; stretched timeout helps with large model downloads
+      HF_HUB_READ_TIMEOUT: "60"
+      HF_HUB_DOWNLOAD_TIMEOUT: "60"
+    volumes:
+      - ./output:/app/output
+      - ./temp:/app/temp
+      - ./settings.json:/app/settings.json:rw
+    restart: unless-stopped

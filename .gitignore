@@ -1,0 +1,12 @@
+# Python
+__pycache__
+.mypy_cache/
+.venv/
+
+# VS Code
+*.code-workspace
+
+# app
+output/
+temp/
+api_temp/
