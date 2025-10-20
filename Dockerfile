@@ -1,26 +1,44 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim
+FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
-# System dependencies for audio, ffmpeg, and scientific Python stacks
+# Install Python 3.11, pip, and system deps needed for audio/ML workloads
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         ffmpeg \
+        git \
         libasound2 \
         libgl1 \
         libglib2.0-0 \
         libsm6 \
+        libsndfile1 \
         libxext6 \
         libxrender1 \
-    && rm -rf /var/lib/apt/lists/*
+        python3.11 \
+        python3.11-dev \
+        python3.11-venv \
+        python3-pip \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/bin/python3.11 /usr/local/bin/python \
+    && ln -s /usr/bin/pip3 /usr/local/bin/pip
 
 WORKDIR /app
 
+# Optionally point pip at a CUDA wheel index (build arg can be overridden at build time)
+ARG TORCH_INDEX_URL=""
+
 # Install Python dependencies first to leverage Docker layer caching
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && \
+    if [ -n "$TORCH_INDEX_URL" ]; then \
+        pip install --extra-index-url "$TORCH_INDEX_URL" -r requirements.txt; \
+    else \
+        pip install -r requirements.txt; \
+    fi
 
 # Copy the rest of the application source
 COPY . .
