@@ -1,0 +1,795 @@
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Divider,
+  FileInput,
+  Flex,
+  Group,
+  Loader,
+  Select,
+  Slider,
+  Space,
+  Stack,
+  Table,
+  Tabs,
+  Text,
+  Textarea,
+  TextInput,
+  Title
+} from "@mantine/core";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { IconAlertCircle, IconChecks } from "@tabler/icons-react";
+import { api } from "@/lib/api";
+import {
+  AnalyzeResponse,
+  BatchCreateRequest,
+  BatchJobStatus,
+  CloneVoice,
+  FileResult,
+  LineGenerationResponse,
+  LineStatus,
+  ReferenceVoice,
+  ReferenceVoiceStyle,
+  SampleScriptDescriptor,
+  SampleStationDescriptor,
+  StationFormatDescriptor,
+  TTSOptions
+} from "@/lib/types";
+import classes from "./VoKitPanel.module.css";
+
+interface ScriptLine {
+  id: string;
+  section: string;
+  text: string;
+  baseText: string;
+  tag?: string | null;
+  referenceKey?: string | null;
+  referenceAudio?: string | null;
+  soundWordsField?: string | null;
+  status: LineStatus;
+  rawOutputs?: FileResult[];
+  finalOutputs?: FileResult[];
+  error?: string | null;
+}
+
+const sanitizeSection = (section: string) => section.replace(/[<>]/g, "").trim();
+
+const extractTag = (text: string): { tag?: string; clean: string } => {
+  const tagMatch = text.match(/^\s*\[([^\]]+)\]/);
+  if (!tagMatch) {
+    return { clean: text.trim() };
+  }
+  const clean = text.replace(tagMatch[0], "").trim();
+  return { tag: tagMatch[1].toLowerCase(), clean };
+};
+
+const parsePlainScript = (content: string): ScriptLine[] => {
+  const lines: ScriptLine[] = [];
+  let currentSection = "Misc";
+  content.split(/\r?\n/).forEach((raw, index) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    if (/^<.+>$/.test(trimmed)) {
+      currentSection = sanitizeSection(trimmed);
+      return;
+    }
+    const { tag, clean } = extractTag(trimmed);
+    lines.push({
+      id: `line-${index}`,
+      section: currentSection,
+      text: clean,
+      baseText: clean,
+      tag,
+      status: "pending"
+    });
+  });
+  return lines;
+};
+
+const extractTemplateKeys = (template: Record<string, { text: string }[]>) => {
+  const keys = new Set<string>();
+  const regex = /%([^%]+)%/g;
+  Object.values(template).forEach((entries) => {
+    entries.forEach((entry) => {
+      const text = entry.text;
+      let match: RegExpExecArray | null;
+      while ((match = regex.exec(text))) {
+        keys.add(match[1]);
+      }
+    });
+  });
+  return Array.from(keys).sort();
+};
+
+const substituteTemplate = (
+  template: Record<string, { text: string; reference?: string }[]>,
+  values: Record<string, string>
+): ScriptLine[] => {
+  const result: ScriptLine[] = [];
+  let index = 0;
+  for (const [section, entries] of Object.entries(template)) {
+    entries.forEach((entry) => {
+      const { tag, clean } = extractTag(entry.text);
+      const text = clean.replace(/%([^%]+)%/g, (_, key) => values[key] ?? `%${key}%`);
+      result.push({
+        id: `tmpl-${index++}`,
+        section,
+        text,
+        baseText: text,
+        tag,
+        referenceKey: entry.reference,
+        status: "pending"
+      });
+    });
+  }
+  return result;
+};
+
+const defaultsToOptions = (defaults: Record<string, any>): TTSOptions => ({
+  exaggeration: defaults.exaggeration_slider ?? 0.5,
+  temperature: defaults.temp_slider ?? 0.75,
+  seed: defaults.seed_input ?? 0,
+  cfg_weight: defaults.cfg_weight_slider ?? 1.0,
+  use_pyrnnoise: defaults.use_pyrnnoise_checkbox ?? false,
+  use_auto_editor: defaults.use_auto_editor_checkbox ?? false,
+  auto_editor_threshold: defaults.threshold_slider ?? 0.06,
+  auto_editor_margin: defaults.margin_slider ?? 0.2,
+  export_formats: defaults.export_format_checkboxes ?? ["wav"],
+  enable_batching: defaults.enable_batching_checkbox ?? false,
+  smart_batch_short_sentences: defaults.smart_batch_short_sentences_checkbox ?? true,
+  to_lowercase: defaults.to_lowercase_checkbox ?? true,
+  normalize_spacing: defaults.normalize_spacing_checkbox ?? true,
+  fix_dot_letters: defaults.fix_dot_letters_checkbox ?? true,
+  remove_reference_numbers: defaults.remove_reference_numbers_checkbox ?? true,
+  keep_original_wav: defaults.keep_original_checkbox ?? false,
+  disable_watermark: defaults.disable_watermark_checkbox ?? true,
+  num_generations: defaults.num_generations_input ?? 1,
+  normalize_audio: defaults.normalize_audio_checkbox ?? false,
+  normalize_method: defaults.normalize_method_dropdown ?? "ebu",
+  normalize_level: defaults.normalize_level_slider ?? -24,
+  normalize_true_peak: defaults.normalize_tp_slider ?? -2,
+  normalize_lra: defaults.normalize_lra_slider ?? 7,
+  num_candidates: defaults.num_candidates_slider ?? 3,
+  max_attempts: defaults.max_attempts_slider ?? 3,
+  bypass_whisper: defaults.bypass_whisper_checkbox ?? false,
+  whisper_model: defaults.whisper_model_dropdown ?? "medium (~5–8 GB OpenAI / ~2.5–4.5 GB faster-whisper)",
+  enable_parallel: defaults.enable_parallel_checkbox ?? true,
+  num_parallel_workers: defaults.num_parallel_workers_slider ?? 4,
+  use_longest_transcript_on_fail: defaults.use_longest_transcript_on_fail_checkbox ?? true,
+  sound_words_field: defaults.sound_words_field ?? "",
+  sound_words: [],
+  use_faster_whisper: defaults.use_faster_whisper_checkbox ?? true,
+  generate_separate_audio_files: defaults.separate_files_checkbox ?? false
+});
+
+const applyStyleOverrides = (
+  options: TTSOptions,
+  style: ReferenceVoiceStyle | undefined,
+  tag?: string | null
+): TTSOptions => {
+  const merged = { ...options };
+  if (style?.default_settings) {
+    const defaults = style.default_settings;
+    if (typeof defaults.temperature === "number") merged.temperature = defaults.temperature;
+    if (typeof defaults.exaggeration === "number") merged.exaggeration = defaults.exaggeration;
+    if (typeof defaults.cfg_weight === "number") merged.cfg_weight = defaults.cfg_weight;
+  }
+  if (tag) {
+    const tagSettings = style?.tag_settings?.[tag.toLowerCase()];
+    if (tagSettings) {
+      if (typeof tagSettings.temperature === "number") merged.temperature = tagSettings.temperature;
+      if (typeof tagSettings.exaggeration === "number") merged.exaggeration = tagSettings.exaggeration;
+      if (typeof tagSettings.cfg_weight === "number") merged.cfg_weight = tagSettings.cfg_weight;
+    }
+  }
+  return merged;
+};
+
+const pickReferenceAudio = (
+  voice: ReferenceVoice | undefined,
+  styleName: string | null,
+  key: string | null | undefined,
+  current?: string | null
+): string | null => {
+  const style = voice?.styles.find((s) => s.name === styleName);
+  if (!style) return current ?? null;
+  if (current && style.audio_files.includes(current)) return current;
+  if (key) {
+    const candidate = style.audio_files.find((file) => file.toLowerCase().startsWith(key.toLowerCase()));
+    if (candidate) return candidate;
+  }
+  return style.audio_files[0] ?? null;
+};
+
+const toFileResults = (outputs?: FileResult[]) => outputs ?? [];
+
+export const VoKitPanel = () => {
+  const defaultsQuery = useQuery<Record<string, any>>({
+    queryKey: ["tts-defaults"],
+    queryFn: async () => (await api.get("/tts/defaults")).data
+  });
+
+  const referenceVoicesQuery = useQuery<ReferenceVoice[]>({
+    queryKey: ["reference-voices"],
+    queryFn: async () => (await api.get<ReferenceVoice[]>("/voices/reference")).data
+  });
+
+  const cloneVoicesQuery = useQuery<CloneVoice[]>({
+    queryKey: ["clone-voices"],
+    queryFn: async () => (await api.get<CloneVoice[]>("/voices/clone")).data
+  });
+
+  const sampleScriptsQuery = useQuery<SampleScriptDescriptor[]>({
+    queryKey: ["sample-scripts"],
+    queryFn: async () => (await api.get<SampleScriptDescriptor[]>("/data/sample-scripts")).data
+  });
+
+  const sampleStationsQuery = useQuery<SampleStationDescriptor[]>({
+    queryKey: ["sample-stations"],
+    queryFn: async () => (await api.get<SampleStationDescriptor[]>("/data/sample-stations")).data
+  });
+
+  const stationFormatsQuery = useQuery<StationFormatDescriptor[]>({
+    queryKey: ["station-formats"],
+    queryFn: async () => (await api.get<StationFormatDescriptor[]>("/data/station-formats")).data
+  });
+
+  const [scriptLines, setScriptLines] = useState<ScriptLine[]>([]);
+  const [scriptName, setScriptName] = useState<string>("Loaded script");
+  const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [cloneVoice, setCloneVoice] = useState<string | null>(null);
+  const [cloneSample, setCloneSample] = useState<string | null>(null);
+  const [clonePitch, setClonePitch] = useState<number>(0);
+  const [activeLoaderTab, setActiveLoaderTab] = useState<string>("upload");
+  const [stationFormValues, setStationFormValues] = useState<Record<string, string>>({});
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [selectedSampleStationId, setSelectedSampleStationId] = useState<string | null>(null);
+  const [batchJobId, setBatchJobId] = useState<string | null>(null);
+
+  const defaults = defaultsQuery.data;
+  const referenceVoices = referenceVoicesQuery.data ?? [];
+  const cloneVoices = cloneVoicesQuery.data ?? [];
+
+  const baseOptions = useMemo(() => (defaults ? defaultsToOptions(defaults) : null), [defaults]);
+
+  useEffect(() => {
+    if (!selectedVoice && referenceVoices.length > 0) {
+      setSelectedVoice(referenceVoices[0].name);
+    }
+  }, [referenceVoices, selectedVoice]);
+
+  useEffect(() => {
+    if (selectedVoice) {
+      const voice = referenceVoices.find((v) => v.name === selectedVoice);
+      if (voice) {
+        const style = voice.styles.find((s) => s.name === selectedStyle) ?? voice.styles[0];
+        setSelectedStyle(style?.name ?? null);
+      }
+    }
+  }, [referenceVoices, selectedVoice]);
+
+  useEffect(() => {
+    if (!selectedVoice || !selectedStyle) return;
+    const voice = referenceVoices.find((v) => v.name === selectedVoice);
+    if (!voice) return;
+    setScriptLines((prev) => {
+      let changed = false;
+      const next = prev.map((line) => {
+        const suggested = pickReferenceAudio(voice, selectedStyle, line.referenceKey, line.referenceAudio);
+        if (suggested && suggested !== line.referenceAudio) {
+          changed = true;
+          return { ...line, referenceAudio: suggested };
+        }
+        return line;
+      });
+      return changed ? next : prev;
+    });
+  }, [selectedVoice, selectedStyle, referenceVoices, scriptLines]);
+
+  const loadSampleScript = async (scriptId: string) => {
+    const res = await api.get(`/data/sample-scripts/${encodeURIComponent(scriptId)}`);
+    const text = res.data.content as string;
+    const parsed = parsePlainScript(text);
+    setScriptLines(parsed);
+    setScriptName(res.data.id ?? scriptId);
+  };
+
+  const loadStationTemplate = async (templateId: string) => {
+    const res = await api.get(`/data/station-formats/${templateId}`);
+    const template = res.data as Record<string, { text: string; reference?: string }[]>;
+    const keys = extractTemplateKeys(template);
+    const existing: Record<string, string> = {};
+    keys.forEach((key) => {
+      existing[key] = stationFormValues[key] ?? "";
+    });
+    setStationFormValues(existing);
+    setSelectedTemplateId(templateId);
+    return template;
+  };
+
+  const applyStationSample = async (sampleId: string, template?: Record<string, any>) => {
+    const res = await api.get(`/data/sample-stations/${encodeURIComponent(sampleId)}`);
+    const sample = res.data as Record<string, string>;
+    const values = { ...stationFormValues };
+    Object.entries(sample).forEach(([key, value]) => {
+      if (typeof value === "string") {
+        values[key] = value;
+      }
+    });
+    setStationFormValues(values);
+    if (!selectedTemplateId) return;
+    const tmpl = template ?? (await loadStationTemplate(selectedTemplateId));
+    const lines = substituteTemplate(tmpl, values);
+    setScriptLines(lines);
+    setScriptName(`${sampleId} (${selectedTemplateId})`);
+  };
+
+  const analyzeMutation = useMutation({
+    mutationFn: async (lines: string[]) => {
+      const res = await api.post<AnalyzeResponse>("/scripts/analyze", { lines });
+      return res.data.processed_lines;
+    },
+    onSuccess: (processed) => {
+      setScriptLines((prev) => prev.map((line, index) => ({ ...line, text: processed[index] ?? line.text })));
+    }
+  });
+
+  const singleLineMutation = useMutation({
+    mutationFn: async (line: ScriptLine) => {
+      if (!baseOptions) throw new Error("Defaults not loaded");
+      if (!selectedVoice || !selectedStyle) throw new Error("Select a reference voice and style");
+      if (!line.referenceAudio) throw new Error("Select reference audio");
+      const voice = referenceVoices.find((v) => v.name === selectedVoice);
+      const style = voice?.styles.find((s) => s.name === selectedStyle);
+      const options = applyStyleOverrides({ ...baseOptions }, style, line.tag);
+      options.sound_words_field = line.soundWordsField ?? baseOptions.sound_words_field ?? "";
+      options.export_formats = Array.from(new Set([...options.export_formats, "wav"]));
+      const payload = {
+        line_id: line.id,
+        text: line.text,
+        section: line.section,
+        reference_voice: selectedVoice,
+        reference_style: selectedStyle,
+        reference_audio: line.referenceAudio,
+        tag: line.tag,
+        sound_words_field: line.soundWordsField,
+        clone_voice: cloneVoice ?? undefined,
+        clone_audio: cloneSample ?? undefined,
+        clone_pitch: clonePitch,
+        options
+      };
+      const res = await api.post<LineGenerationResponse>("/lines/generate", payload);
+      return res.data;
+    },
+    onSuccess: (response) => {
+      setScriptLines((prev) =>
+        prev.map((line) =>
+          line.id === response.line_id
+            ? {
+                ...line,
+                status: "completed",
+                rawOutputs: toFileResults(response.raw_outputs),
+                finalOutputs: toFileResults(response.final_outputs),
+                error: null
+              }
+            : line
+        )
+      );
+    },
+    onError: (error, line) => {
+      const message = error instanceof Error ? error.message : "Generation failed";
+      setScriptLines((prev) => prev.map((item) => (item.id === line.id ? { ...item, status: "failed", error: message } : item)));
+    }
+  });
+
+  const batchMutation = useMutation({
+    mutationFn: async (lines: ScriptLine[]) => {
+      if (!baseOptions) throw new Error("Defaults not loaded");
+      if (!selectedVoice || !selectedStyle) throw new Error("Select a reference voice and style");
+      const voice = referenceVoices.find((v) => v.name === selectedVoice);
+      const style = voice?.styles.find((s) => s.name === selectedStyle);
+      const payloadLines = lines.map((line) => {
+        const options = applyStyleOverrides({ ...baseOptions }, style, line.tag);
+        options.sound_words_field = line.soundWordsField ?? baseOptions.sound_words_field ?? "";
+        options.export_formats = Array.from(new Set([...options.export_formats, "wav"]));
+        if (!line.referenceAudio) {
+          throw new Error(`Line ${line.id} is missing reference audio`);
+        }
+        return {
+          line_id: line.id,
+          text: line.text,
+          section: line.section,
+          reference_voice: selectedVoice,
+          reference_style: selectedStyle,
+          reference_audio: line.referenceAudio,
+          tag: line.tag,
+          sound_words_field: line.soundWordsField,
+          clone_voice: cloneVoice ?? undefined,
+          clone_audio: cloneSample ?? undefined,
+          clone_pitch: clonePitch,
+          options
+        };
+      });
+      const payload: BatchCreateRequest = { lines: payloadLines, job_name: scriptName };
+      const res = await api.post<{ job_id: string }>("/jobs", payload);
+      return res.data.job_id;
+    },
+    onSuccess: (jobId) => {
+      setBatchJobId(jobId);
+      setScriptLines((prev) => prev.map((line) => (line.status === "completed" ? line : { ...line, status: "processing", error: null })));
+    }
+  });
+
+  const batchStatusQuery = useQuery<BatchJobStatus>({
+    queryKey: ["job-status", batchJobId],
+    queryFn: async () => (await api.get<BatchJobStatus>(`/jobs/${batchJobId}`)).data,
+    enabled: Boolean(batchJobId),
+    refetchInterval: 2000
+  });
+
+  useEffect(() => {
+    const status = batchStatusQuery.data;
+    if (!status) return;
+    setScriptLines((prev) =>
+      prev.map((line) => {
+        const state = status.lines.find((l) => l.line_id === line.id);
+        if (!state) return line;
+        return {
+          ...line,
+          status: state.status,
+          error: state.error ?? null,
+          rawOutputs: state.raw_outputs ?? line.rawOutputs,
+          finalOutputs: state.final_outputs ?? line.finalOutputs
+        };
+      })
+    );
+    if (["completed", "cancelled", "failed"].includes(status.state)) {
+      setBatchJobId(null);
+    }
+  }, [batchStatusQuery.data]);
+
+  const cancelBatch = async () => {
+    if (!batchJobId) return;
+    await api.post(`/jobs/${batchJobId}/cancel`);
+    setBatchJobId(null);
+    batchStatusQuery.refetch();
+  };
+
+  const activeVoice = referenceVoices.find((voice) => voice.name === selectedVoice);
+  const activeStyle = activeVoice?.styles.find((style) => style.name === selectedStyle);
+  const tagOptions = [
+    { value: "", label: "Default" },
+    ...(activeStyle ? Object.keys(activeStyle.tag_settings).map((tag) => ({ value: tag, label: tag })) : [])
+  ];
+
+  const cloneVoiceOptions = cloneVoices.map((voice) => ({ value: voice.name, label: voice.name }));
+  const cloneSampleOptions = cloneVoices
+    .find((voice) => voice.name === cloneVoice)
+    ?.files.map((file) => ({ value: file, label: file })) ?? [];
+
+  const pendingLines = scriptLines.filter((line) => line.status !== "completed");
+
+  const handleFileUpload = async (file: File | null) => {
+    if (!file) return;
+    const text = await file.text();
+    const parsed = parsePlainScript(text);
+    setScriptLines(parsed);
+    setScriptName(file.name);
+  };
+
+  const handleStationTemplateGenerate = async () => {
+    if (!selectedTemplateId) return;
+    const res = await api.get(`/data/station-formats/${selectedTemplateId}`);
+    const template = res.data as Record<string, { text: string; reference?: string }[]>;
+    const lines = substituteTemplate(template, stationFormValues);
+    setScriptLines(lines);
+    setScriptName(`${selectedTemplateId} template`);
+  };
+
+  const renderLoader = defaultsQuery.isLoading || referenceVoicesQuery.isLoading;
+
+  return (
+    <Stack gap="lg">
+      <Card withBorder padding="lg" radius="md" shadow="sm">
+        <Stack gap="sm">
+          <Title order={4}>Script Source</Title>
+          <Tabs value={activeLoaderTab} onChange={(value) => setActiveLoaderTab(value || "upload")}>
+            <Tabs.List>
+              <Tabs.Tab value="upload">Import .txt</Tabs.Tab>
+              <Tabs.Tab value="sample">Sample script</Tabs.Tab>
+              <Tabs.Tab value="format">Station format</Tabs.Tab>
+            </Tabs.List>
+
+            <Tabs.Panel value="upload" pt="md">
+              <FileInput accept="text/plain" placeholder="Select .txt" onChange={handleFileUpload} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="sample" pt="md">
+              <Group align="flex-end" gap="md">
+                <Select
+                  label="Sample script"
+                  placeholder="Select"
+                  data={sampleScriptsQuery.data?.map((item) => ({ value: item.id, label: item.filename })) ?? []}
+                  onChange={(value) => value && loadSampleScript(value)}
+                />
+              </Group>
+            </Tabs.Panel>
+
+            <Tabs.Panel value="format" pt="md">
+              <Stack>
+                <Group align="flex-end" gap="md">
+                  <Select
+                    label="Station format"
+                    placeholder="Select"
+                    data={stationFormatsQuery.data?.map((item) => ({ value: item.id, label: item.id })) ?? []}
+                    value={selectedTemplateId}
+                    onChange={(value) => {
+                      setSelectedTemplateId(value);
+                      if (value) loadStationTemplate(value);
+                    }}
+                  />
+                  <Select
+                    label="Sample station"
+                    placeholder="Optional"
+                    data={sampleStationsQuery.data?.map((item) => ({ value: item.id, label: item.filename })) ?? []}
+                    value={selectedSampleStationId}
+                    onChange={(value) => {
+                      setSelectedSampleStationId(value);
+                      if (value && selectedTemplateId) {
+                        loadStationTemplate(selectedTemplateId).then((template) => applyStationSample(value, template));
+                      }
+                    }}
+                  />
+                </Group>
+                <Flex wrap="wrap" gap="sm">
+                  {Object.entries(stationFormValues).map(([key, value]) => (
+                    <TextInput
+                      key={key}
+                      label={key}
+                      value={value}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        setStationFormValues((prev) => ({ ...prev, [key]: event.currentTarget.value }))
+                      }
+                      className={classes.templateInput}
+                    />
+                  ))}
+                </Flex>
+                <Button onClick={handleStationTemplateGenerate} disabled={!selectedTemplateId}>
+                  Generate from template
+                </Button>
+              </Stack>
+            </Tabs.Panel>
+          </Tabs>
+          <Group>
+            <Button
+              variant="light"
+              color="violet"
+              onClick={() => analyzeMutation.mutateAsync(scriptLines.map((line) => line.text))}
+              disabled={scriptLines.length === 0}
+              loading={analyzeMutation.isLoading}
+            >
+              Analyze with ChatGPT
+            </Button>
+            {analyzeMutation.isError && (
+              <Text c="red.4">Failed to analyze script.</Text>
+            )}
+          </Group>
+        </Stack>
+      </Card>
+
+      <Card withBorder padding="lg" radius="md" shadow="sm">
+        <Stack gap="md">
+          <Title order={4}>Voice & Clone Settings</Title>
+          {renderLoader ? (
+            <Loader />
+          ) : (
+            <>
+              <Group grow>
+                <Select
+                  label="Reference voice"
+                  data={referenceVoices.map((voice) => ({ value: voice.name, label: voice.name }))}
+                  value={selectedVoice}
+                  onChange={setSelectedVoice}
+                />
+                <Select
+                  label="Read style"
+                  data={
+                    activeVoice?.styles.map((style) => ({ value: style.name, label: style.name })) ?? []
+                  }
+                  value={selectedStyle}
+                  onChange={setSelectedStyle}
+                  disabled={!selectedVoice}
+                />
+              </Group>
+
+              <Divider label="Clone (optional)" labelPosition="left" />
+              <Group grow>
+                <Select
+                  label="Clone voice"
+                  placeholder="None"
+                  data={[{ value: "", label: "None" }, ...cloneVoiceOptions]}
+                  value={cloneVoice ?? ""}
+                  onChange={(value) => setCloneVoice(value || null)}
+                />
+                <Select
+                  label="Clone sample"
+                  placeholder="Auto"
+                  data={cloneSampleOptions}
+                  value={cloneSample}
+                  onChange={setCloneSample}
+                  disabled={!cloneVoice}
+                />
+              </Group>
+              <Stack gap={4}>
+                <Text fw={500}>Clone pitch ({clonePitch} semitones)</Text>
+                <Slider min={-12} max={12} step={1} value={clonePitch} onChange={setClonePitch} marks={[{ value: 0, label: "0" }]} />
+              </Stack>
+            </>
+          )}
+        </Stack>
+      </Card>
+
+      <Card withBorder padding="lg" radius="md" shadow="sm">
+        <Group align="center" justify="space-between">
+          <Title order={4}>{scriptName}</Title>
+          <Group>
+            <Button
+              variant="light"
+              color="gray"
+              onClick={() => {
+                setScriptLines((prev) => prev.map((line) => ({ ...line, status: "pending", rawOutputs: undefined, finalOutputs: undefined, error: null })));
+              }}
+            >
+              Reset statuses
+            </Button>
+            <Button
+              color="violet"
+              onClick={() => batchMutation.mutateAsync(scriptLines.filter((line) => line.status !== "completed"))}
+              disabled={scriptLines.length === 0 || pendingLines.length === 0 || !baseOptions || !selectedVoice || !selectedStyle}
+              loading={batchMutation.isLoading}
+            >
+              Generate all pending ({pendingLines.length})
+            </Button>
+            {batchJobId && (
+              <Button color="red" variant="outline" onClick={cancelBatch}>
+                Cancel batch
+              </Button>
+            )}
+          </Group>
+        </Group>
+        <Space h="md" />
+
+        {batchStatusQuery.data?.zip_file && (
+          <Alert color="teal" radius="sm" title="Bundle ready" icon={<IconChecks size={16} />}>
+            <Group gap="sm" align="center">
+              <Text>Download the stitched bundle:</Text>
+              <Button component="a" href={batchStatusQuery.data.zip_file.url} variant="light" size="xs">
+                Download ZIP
+              </Button>
+            </Group>
+          </Alert>
+        )}
+
+        <Space h="sm" />
+        <div className={classes.tableWrapper}>
+          <Table striped highlightOnHover verticalSpacing="sm">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th w={120}>Section</Table.Th>
+                <Table.Th>Text</Table.Th>
+                <Table.Th w={120}>Tag</Table.Th>
+                <Table.Th w={160}>Reference audio</Table.Th>
+                <Table.Th w={160}>Status</Table.Th>
+                <Table.Th w={200}>Actions</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {scriptLines.map((line) => (
+                <Table.Tr key={line.id}>
+                  <Table.Td>
+                    <Text fw={500}>{line.section}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Textarea
+                      autosize
+                      minRows={2}
+                      value={line.text}
+                      onChange={(event) =>
+                        setScriptLines((prev) => prev.map((item) => (item.id === line.id ? { ...item, text: event.currentTarget.value } : item)))
+                      }
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    <Select
+                      value={line.tag ?? ""}
+                      onChange={(value) =>
+                        setScriptLines((prev) => prev.map((item) => (item.id === line.id ? { ...item, tag: value || null } : item)))
+                      }
+                      data={tagOptions}
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    <Select
+                      searchable
+                      clearable
+                      placeholder="Select"
+                      value={line.referenceAudio}
+                      data={activeStyle?.audio_files.map((file) => ({ value: file, label: file })) ?? []}
+                      onChange={(value) =>
+                        setScriptLines((prev) => prev.map((item) => (item.id === line.id ? { ...item, referenceAudio: value } : item)))
+                      }
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    <StatusBadge status={line.status} error={line.error} />
+                    {line.finalOutputs && line.finalOutputs.length > 0 && (
+                      <Stack gap={2} mt={4}>
+                        {line.finalOutputs.map((file) => (
+                          <Button key={file.path} component="a" href={file.url} download variant="subtle" size="xs">
+                            {file.path}
+                          </Button>
+                        ))}
+                      </Stack>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs">
+                      <Button
+                        size="xs"
+                        color="violet"
+                        onClick={() => {
+                          setScriptLines((prev) => prev.map((item) => (item.id === line.id ? { ...item, status: "processing", error: null } : item)));
+                          singleLineMutation.mutate(line);
+                        }}
+                        loading={singleLineMutation.isLoading && singleLineMutation.variables?.id === line.id}
+                        disabled={!baseOptions}
+                      >
+                        Generate
+                      </Button>
+                      {line.finalOutputs && line.finalOutputs[0]?.url && (
+                        <Button component="a" size="xs" variant="outline" href={line.finalOutputs[0].url} target="_blank">
+                          Preview
+                        </Button>
+                      )}
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </div>
+      </Card>
+
+      {batchStatusQuery.isFetching && batchJobId && (
+        <Alert color="violet" icon={<Loader size="xs" />}>
+          Processing batch… {Math.round((batchStatusQuery.data?.progress ?? 0) * 100)}%
+        </Alert>
+      )}
+    </Stack>
+  );
+};
+
+const StatusBadge = ({ status, error }: { status: LineStatus; error?: string | null }) => {
+  const map: Record<LineStatus, { color: string; label: string }> = {
+    pending: { color: "gray", label: "Pending" },
+    processing: { color: "yellow", label: "Processing" },
+    completed: { color: "green", label: "Completed" },
+    failed: { color: "red", label: "Failed" },
+    cancelled: { color: "orange", label: "Cancelled" }
+  };
+  const item = map[status];
+  return (
+    <Stack gap={4}>
+      <Badge color={item.color}>{item.label}</Badge>
+      {error ? (
+        <Text size="xs" c="red.4">
+          {error}
+        </Text>
+      ) : null}
+    </Stack>
+  );
+};

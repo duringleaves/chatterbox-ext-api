@@ -33,6 +33,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback context
     sys.modules["spaces"] = spaces_stub
 
 # Import core functionality from the reusable service module
+from api.config import settings
 from chatterbox.service import (  # type: ignore
     DEVICE,
     WHISPER_MODEL_MAP as whisper_model_map,
@@ -48,10 +49,10 @@ LOGGER = logging.getLogger("chatterbox.fastapi")
 if Path.cwd() != BASE_DIR:
     os.chdir(BASE_DIR)
 
-OUTPUT_DIR = BASE_DIR / "output"
+OUTPUT_DIR = settings.resolved_output_dir
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-TEMP_DIR = BASE_DIR / "api_temp"
+TEMP_DIR = settings.resolved_temp_dir
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
 CHATTER_DEFAULTS = default_settings()
@@ -86,6 +87,7 @@ __all__ = [
     "CHATTER_DEFAULTS",
     "DEVICE",
     "GENERATION_LOCK",
+    "settings",
     "OUTPUT_DIR",
     "TEMP_DIR",
     "LOGGER",

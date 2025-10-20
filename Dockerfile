@@ -1,4 +1,10 @@
 # syntax=docker/dockerfile:1
+
+FROM node:20 AS ui-builder
+WORKDIR /uiapp
+COPY ui/ ./
+RUN npm install && npm run build
+
 FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -42,6 +48,7 @@ RUN pip install --upgrade pip && \
 
 # Copy the rest of the application source
 COPY . .
+COPY --from=ui-builder /uiapp/dist ./ui/dist
 
 EXPOSE 8000
 

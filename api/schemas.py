@@ -5,7 +5,8 @@ import base64
 import os
 import uuid
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
+from enum import Enum
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator, validator
@@ -189,6 +190,77 @@ class VoiceConversionResponse(BaseModel):
     outputs: List[FileResult]
 
 
+class AnalyzeScriptRequest(BaseModel):
+    lines: List[str]
+
+
+class AnalyzeScriptResponse(BaseModel):
+    processed_lines: List[str]
+
+
+class LineStatus(str, Enum):
+    pending = "pending"
+    processing = "processing"
+    completed = "completed"
+    failed = "failed"
+    cancelled = "cancelled"
+
+
+class JobState(str, Enum):
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    cancelled = "cancelled"
+    failed = "failed"
+
+
+class LineGenerationRequest(BaseModel):
+    line_id: str
+    text: str
+    section: Optional[str] = None
+    reference_voice: str
+    reference_style: str
+    reference_audio: str
+    options: TTSOptions
+    tag: Optional[str] = None
+    sound_words_field: Optional[str] = None
+    clone_voice: Optional[str] = None
+    clone_audio: Optional[str] = None
+    clone_pitch: float = Field(default=0.0)
+
+
+class LineGenerationResponse(BaseModel):
+    line_id: str
+    raw_outputs: List[FileResult]
+    final_outputs: List[FileResult]
+    metadata: Dict[str, str] = Field(default_factory=dict)
+
+
+class BatchCreateRequest(BaseModel):
+    lines: List[LineGenerationRequest]
+    job_name: Optional[str] = None
+
+
+class BatchLineStatus(BaseModel):
+    line_id: str
+    status: LineStatus
+    error: Optional[str] = None
+    raw_outputs: Optional[List[FileResult]] = None
+    final_outputs: Optional[List[FileResult]] = None
+
+
+class BatchJobStatus(BaseModel):
+    job_id: str
+    state: JobState
+    progress: float
+    total_lines: int
+    completed_lines: int
+    failed_lines: int
+    lines: List[BatchLineStatus]
+    zip_file: Optional[FileResult] = None
+    message: Optional[str] = None
+
+
 __all__ = [
     "Base64File",
     "FileResult",
@@ -198,4 +270,13 @@ __all__ = [
     "TTSResponse",
     "VoiceConversionRequest",
     "VoiceConversionResponse",
+    "AnalyzeScriptRequest",
+    "AnalyzeScriptResponse",
+    "LineStatus",
+    "JobState",
+    "LineGenerationRequest",
+    "LineGenerationResponse",
+    "BatchCreateRequest",
+    "BatchLineStatus",
+    "BatchJobStatus",
 ]

@@ -1,0 +1,292 @@
+{
+  "STATION CALLS": [
+    {
+      "text": "%stationCalls%",
+      "reference": "station_calls"
+    },
+    {
+      "text": "[fast]%stationCalls%",
+      "reference": "station_calls_fast"
+    },
+    {
+      "text": "[slow]%stationCalls%",
+      "reference": "station_calls"
+    },
+    {
+      "text": "On %stationCalls%",
+      "reference": "on_station_calls"
+    },
+    {
+      "text": "From %stationCalls%",
+      "reference": "from_station_calls"
+    }
+  ],
+  "LEGAL CALLS": [
+    {
+      "text": "%legalCalls%",
+      "reference": "legal_calls"
+    },
+    {
+      "text": "[fast]%legalCalls%",
+      "reference": "legal_calls_fast"
+    },
+    {
+      "text": "[intense]%legalCalls%",
+      "reference": "legal_calls_intense"
+    }
+  ],
+  "SLOGAN": [
+    {
+      "text": "%slogan%",
+      "reference": "holiday"
+    },
+    {
+      "text": "[fast]%slogan%",
+      "reference": "holiday"
+    },
+    {
+      "text": "[slow]%slogan%",
+      "reference": "holiday"
+    },
+    {
+      "text": "[intense]%slogan%",
+      "reference": "holiday"
+    }
+  ],
+  "MORNING SHOW": [
+    {
+      "text": "This is %morningShow%",
+      "reference": "this_is_show"
+    },
+    {
+      "text": "Wake Up With %morningShow%",
+      "reference": "wake_up_show"
+    },
+    {
+      "text": "You\u2019re Listening To %morningShow%",
+      "reference": "youre_listening_show"
+    },
+    {
+      "text": "%morningShow%",
+      "reference": "show"
+    }
+  ],
+  "MIDDAYS": [
+    {
+      "text": "%middays%",
+      "reference": "show"
+    },
+    {
+      "text": "This Is %middays%",
+      "reference": "this_is_show"
+    },
+    {
+      "text": "You\u2019re Listening To %middays%",
+      "reference": "youre_listening_show"
+    }
+  ],
+  "AFTERNOONS": [
+    {
+      "text": "%afternoons%",
+      "reference": "show"
+    },
+    {
+      "text": "This Is %afternoons%",
+      "reference": "this_is_show"
+    },
+    {
+      "text": "You\u2019re Listening To %afternoons%",
+      "reference": "youre_listening_show"
+    }
+  ],
+  "NIGHTS": [
+    {
+      "text": "%nights%",
+      "reference": "show"
+    },
+    {
+      "text": "This Is %nights%",
+      "reference": "this_is_show"
+    },
+    {
+      "text": "You\u2019re Listening To %nights%",
+      "reference": "youre_listening_show"
+    }
+  ],
+  "COUNTDOWN": [
+    {
+      "text": "%countdown%",
+      "reference": "show"
+    },
+    {
+      "text": "This Is %countdown%",
+      "reference": "this_is_show"
+    },
+    {
+      "text": "You\u2019re Listening To %countdown%",
+      "reference": "youre_listening_show"
+    },
+    {
+      "text": "We\u2019re Back To %countdown%",
+      "reference": "back_to_the_music_on"
+    }
+  ],
+  "MIX SHOW": [
+    {
+      "text": "You\u2019re In The Mix With %mixshow%",
+      "reference": "in_the_mix_with"
+    },
+    {
+      "text": "Live In The Mix With %mixshow%",
+      "reference": "live_in_the_mix_with"
+    },
+    {
+      "text": "We\u2019re Back To %mixshow%",
+      "reference": "back_to_mixshow"
+    }
+  ],
+  "WEBSITE": [
+    {
+      "text": "%website%",
+      "reference": "website"
+    },
+    {
+      "text": "At %website%",
+      "reference": "at_website"
+    },
+    {
+      "text": "Streaming Live At %website%",
+      "reference": "streaming_live_at"
+    }
+  ],
+  "FACEBOOK": [
+    {
+      "text": "%facebook%",
+      "reference": "social"
+    },
+    {
+      "text": "Like Us On Facebook At %facebook%",
+      "reference": "follow_us_social"
+    },
+    {
+      "text": "Friend Us At %facebook%",
+      "reference": "friend_us_social"
+    }
+  ],
+  "TWITTER": [
+    {
+      "text": "%twitter%",
+      "reference": "social"
+    },
+    {
+      "text": "Follow Us On Twitter At %twitter%",
+      "reference": "follow_us_on"
+    },
+    {
+      "text": "Tweet Us At %twitter%",
+      "reference": "friend_us_social"
+    }
+  ],
+  "INSTAGRAM": [
+    {
+      "text": "%instagram%",
+      "reference": "instagram"
+    },
+    {
+      "text": "Follow Us On Instagram At %instagram%",
+      "reference": "follow_us_on"
+    }
+  ],
+  "MOBILE APP": [
+    {
+      "text": "%mobileApp%",
+      "reference": "app"
+    },
+    {
+      "text": "Streaming Live With %mobileApp%",
+      "reference": "streaming_live_at"
+    },
+    {
+      "text": "Download %mobileApp%",
+      "reference": "app"
+    }
+  ],
+  "STOPSET": [
+    {
+      "text": "In Minutes, On %stationCalls%",
+      "reference": "in_minutes_on"
+    },
+    {
+      "text": "Coming Up On %stationCalls%",
+      "reference": "coming_up_on"
+    },
+    {
+      "text": "Back To The Music On %stationCalls%",
+      "reference": "back_to_the_music_on"
+    }
+  ],
+  "CONTEST": [
+    {
+      "text": "Listen To Win On %stationCalls%",
+      "reference": "listen_to_win"
+    },
+    {
+      "text": "Win It On %stationCalls%",
+      "reference": "win_it_on"
+    },
+    {
+      "text": "Call Now To Win",
+      "reference": "call_now_to_win"
+    },
+    {
+      "text": "%phoneNumber%",
+      "reference": "phone_number"
+    }
+  ],
+  "CONCERT": [
+    {
+      "text": "Win Tickets On %stationCalls%",
+      "reference": "win_tickets_on"
+    },
+    {
+      "text": "See Her Live From %stationCalls%",
+      "reference": "see_her_live"
+    },
+    {
+      "text": "See Him Live From %stationCalls%",
+      "reference": "see_him_live"
+    },
+    {
+      "text": "See Them Live From %stationCalls%",
+      "reference": "see_them_live"
+    }
+  ],
+  "NEW MUSIC": [
+    {
+      "text": "Here\u2019s What\u2019s New On %stationCalls%",
+      "reference": "heres_whats_new_on"
+    },
+    {
+      "text": "New Music On %stationCalls%",
+      "reference": "new_music_on"
+    },
+    {
+      "text": "New Music First On %stationCalls%",
+      "reference": "new_music_first_on"
+    }
+  ],
+  "HOLIDAY": [
+    {
+      "text": "Merry Christmas",
+      "reference": "merry_christmas"
+    },
+    {
+      "text": "Happy holidays",
+      "reference": "happy_holidays"
+    },
+    {
+      "text": "Happy Thanksgiving",
+      "reference": "happy_thanksgiving"
+    }
+  ]
+}
