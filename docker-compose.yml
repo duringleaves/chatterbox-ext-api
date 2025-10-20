@@ -6,8 +6,12 @@ services:
     image: chatterbox-tts-api:latest
     ports:
       - "8000:8000"
-    gpus:
-      - all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities:
+                - gpu
     environment:
       # Extend or override as needed; stretched timeout helps with large model downloads
       HF_HUB_READ_TIMEOUT: "60"
