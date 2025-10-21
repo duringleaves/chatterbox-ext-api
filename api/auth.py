@@ -1,7 +1,7 @@
 """Simple API key authentication dependency."""
 from __future__ import annotations
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 
 from .config import settings
 
@@ -12,15 +12,17 @@ API_KEY_ERROR = HTTPException(
 )
 
 
-def require_api_key(authorization: str = Header(default="")) -> str:
-    if not authorization:
+def require_api_key(request: Request, authorization: str = Header(default="")) -> str:
+    token = ""
+    if authorization:
+        scheme, _, value = authorization.partition(" ")
+        if scheme.lower() == "bearer" and value:
+            token = value.strip()
+    if not token:
+        token = request.query_params.get("api_key", "").strip()
+    if not token or token != settings.api_key:
         raise API_KEY_ERROR
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not token:
-        raise API_KEY_ERROR
-    if token.strip() != settings.api_key:
-        raise API_KEY_ERROR
-    return token.strip()
+    return token
 
 
 def get_authorized_token(token: str = Depends(require_api_key)) -> str:

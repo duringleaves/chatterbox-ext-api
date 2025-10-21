@@ -6,6 +6,11 @@
   overflow-x: auto;
 }
 
+.tableWrapper table {
+  width: 100%;
+  table-layout: fixed;
+}
+
 .sectionRow td {
   background-color: rgba(148, 163, 184, 0.12);
   color: #e2e8f0;

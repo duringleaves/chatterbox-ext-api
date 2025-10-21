@@ -193,16 +193,30 @@ const pickReferenceAudio = (
   voice: ReferenceVoice | undefined,
   styleName: string | null,
   key: string | null | undefined,
-  current?: string | null
+  current: string | null | undefined,
+  seed: string
 ): string | null => {
   const style = voice?.styles.find((s) => s.name === styleName);
-  if (!style) return current ?? null;
-  if (current && style.audio_files.includes(current)) return current;
-  if (key) {
-    const candidate = style.audio_files.find((file) => file.toLowerCase().startsWith(key.toLowerCase()));
-    if (candidate) return candidate;
+  if (!style || !style.audio_files.length) {
+    return current ?? null;
   }
-  return style.audio_files[0] ?? null;
+
+  const pool = key
+    ? style.audio_files.filter((file) => file.toLowerCase().startsWith(key.toLowerCase()))
+    : style.audio_files;
+
+  if (current && pool.includes(current)) {
+    return current;
+  }
+
+  const candidates = pool.length ? pool : style.audio_files;
+  const source = `${seed}|${voice?.name ?? ""}|${styleName ?? ""}|${key ?? ""}`;
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = (hash * 31 + source.charCodeAt(i)) | 0;
+  }
+  const index = Math.abs(hash) % candidates.length;
+  return candidates[index] ?? current ?? null;
 };
 
 const toFileResults = (outputs?: FileResult[]) => outputs ?? [];
@@ -289,7 +303,7 @@ export const VoKitPanel = () => {
     setScriptLines((prev) => {
       let changed = false;
       const next = prev.map((line) => {
-        const suggested = pickReferenceAudio(voice, selectedStyle, line.referenceKey, line.referenceAudio);
+        const suggested = pickReferenceAudio(voice, selectedStyle, line.referenceKey, line.referenceAudio, line.id);
         if (suggested && suggested !== line.referenceAudio) {
           changed = true;
           return { ...line, referenceAudio: suggested };
