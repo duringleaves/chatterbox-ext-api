@@ -2,7 +2,7 @@
 
 FROM node:alpine AS ui-builder
 WORKDIR /uiapp
-COPY ui/ ./                      # copy everything under ui/
+COPY ui/ ./ 
 RUN npm install && npm run build
 
 FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
