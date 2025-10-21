@@ -188,6 +188,12 @@ const applyStyleOverrides = (
   return merged;
 };
 
+const triggerPlayback = (url?: string) => {
+  if (!url) return;
+  const withTs = url.includes('?') ? `${url}&ts=${Date.now()}` : `${url}?ts=${Date.now()}`;
+  setPreviewUrl(withTs);
+};
+
 const pickReferenceAudio = (
   voice: ReferenceVoice | undefined,
   styleName: string | null,
@@ -244,11 +250,18 @@ export const VoKitPanel = () => {
   const [cloneVoice, setCloneVoice] = useState<string | null>(null);
   const [cloneSample, setCloneSample] = useState<string | null>(null);
   const [clonePitch, setClonePitch] = useState<number>(0);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [activeLoaderTab, setActiveLoaderTab] = useState<string>("upload");
   const [stationFormValues, setStationFormValues] = useState<Record<string, string>>({});
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedSampleStationId, setSelectedSampleStationId] = useState<string | null>(null);
   const [batchJobId, setBatchJobId] = useState<string | null>(null);
+
+  const triggerPlayback = (url?: string) => {
+    if (!url) return;
+    const withTs = url.includes('?') ? `${url}&ts=${Date.now()}` : `${url}?ts=${Date.now()}`;
+    setPreviewUrl(withTs);
+  };
 
   const defaults = defaultsQuery.data;
   const referenceVoices = referenceVoicesQuery.data ?? [];
@@ -728,7 +741,8 @@ export const VoKitPanel = () => {
                         }
                       />
                       <PlayButton
-                        url={line.referenceAudio ? getReferenceUrl(selectedVoice, selectedStyle, line.referenceAudio) : undefined}
+                        url={getReferenceUrl(selectedVoice, selectedStyle, line.referenceAudio)}
+                        onPlay={triggerPlayback}
                       />
                     </Group>
                   </Table.Td>
@@ -740,7 +754,7 @@ export const VoKitPanel = () => {
                           .filter((file) => file.path.endsWith(".mp3"))
                           .map((file) => (
                             <Group gap="xs" key={file.path}>
-                              <PlayButton url={file.url} />
+                              <PlayButton url={file.url} onPlay={triggerPlayback} />
                               <Button component="a" href={file.url} download variant="subtle" size="xs">
                                 {file.path}
                               </Button>
@@ -782,28 +796,31 @@ export const VoKitPanel = () => {
           Processing batch… {Math.round((batchStatusQuery.data?.progress ?? 0) * 100)}%
         </Alert>
       )}
+      {previewUrl && (
+        <audio key={previewUrl} src={previewUrl} autoPlay controls style={{ display: "none" }} />
+      )}
     </Stack>
   );
 };
 
 
-const PlayButton = ({ url }: { url?: string }) => {
-  if (!url) {
-    return <Button size="xs" variant="subtle" disabled leftSection={<IconPlayerPlay size={14} />}>Play</Button>;
-  }
-  return (
-    <Button
-      size="xs"
-      variant="light"
-      leftSection={<IconPlayerPlay size={14} />}
-      component="a"
-      href={url}
-      target="_blank"
-    >
-      Play
-    </Button>
-  );
+const getReferenceUrl = (voice: string | null, style: string | null, file: string | null) => {
+  if (!voice || !style || !file) return undefined;
+  const encoded = encodeURIComponent(file);
+  return `/voices/reference/${encodeURIComponent(voice)}/${encodeURIComponent(style)}/${encoded}`;
 };
+
+const PlayButton = ({ url, onPlay }: { url?: string; onPlay?: (url: string) => void }) => (
+  <Button
+    size="xs"
+    variant="light"
+    leftSection={<IconPlayerPlay size={14} />}
+    disabled={!url}
+    onClick={() => url && onPlay?.(url)}
+  >
+    Play
+  </Button>
+);
 
 const StatusBadge = ({ status, error }: { status: LineStatus; error?: string | null }) => {
   const map: Record<LineStatus, { color: string; label: string }> = {
