@@ -1,4 +1,10 @@
 # syntax=docker/dockerfile:1
+
+FROM node:alpine AS ui-builder
+WORKDIR /uiapp
+COPY ui/ ./                      # copy everything under ui/
+RUN npm install && npm run build
+
 FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -6,7 +12,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# Install Python 3.11, pip, and system deps needed for audio/ML workloads
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         ffmpeg \
@@ -28,10 +33,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Optionally point pip at a CUDA wheel index (build arg can be overridden at build time)
 ARG TORCH_INDEX_URL=""
 
-# Install Python dependencies first to leverage Docker layer caching
 COPY requirements.txt ./
 RUN pip install --upgrade pip && \
     if [ -n "$TORCH_INDEX_URL" ]; then \
@@ -40,9 +43,10 @@ RUN pip install --upgrade pip && \
         pip install -r requirements.txt; \
     fi
 
-# Copy the rest of the application source
 COPY . .
+COPY --from=ui-builder /uiapp/dist ./ui/dist
 
-EXPOSE 8000
+ENV CHATTERBOX_TTS_DEFAULTS_PATH=/app/config/tts_defaults.json
 
-CMD ["uvicorn", "fastapi_server:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8888
+CMD ["uvicorn", "fastapi_server:app", "--host", "0.0.0.0", "--port", "8888"]
