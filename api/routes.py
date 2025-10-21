@@ -6,11 +6,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import List
 
-from fastapi import APIRouter, HTTPException
 import soundfile as sf
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from pydub import AudioSegment
 from starlette.concurrency import run_in_threadpool
 
+from .auth import require_api_key
+from .config import settings
 from .core import (
     CHATTER_DEFAULTS,
     DEVICE,
@@ -23,13 +26,34 @@ from .core import (
     save_settings,
     whisper_model_map,
 )
+from .data_service import (
+    get_clone_voice_path,
+    get_reference_audio_path,
+    list_clone_voices,
+    list_reference_voices,
+    list_sample_scripts,
+    list_sample_stations,
+    list_station_formats,
+    load_sample_script,
+    load_sample_station,
+    load_station_template,
+)
+from .jobs import job_manager
+from .line_processing import generate_line_audio
 from .schemas import (
+    AnalyzeScriptRequest,
+    AnalyzeScriptResponse,
+    BatchCreateRequest,
+    BatchJobStatus,
     FileResult,
+    LineGenerationRequest,
+    LineGenerationResponse,
     TTSRequest,
     TTSResponse,
     VoiceConversionRequest,
     VoiceConversionResponse,
 )
+from .services.text_processing import TextProcessingError, text_preprocessor
 from .utils import (
     build_sound_words_text,
     collect_settings_files,
@@ -39,6 +63,7 @@ from .utils import (
 )
 
 router = APIRouter()
+protected = APIRouter(dependencies=[Depends(require_api_key)])
 
 
 @router.get("/health")
@@ -46,23 +71,23 @@ def health() -> dict:
     return {"status": "ok", "device": DEVICE}
 
 
-@router.get("/tts/defaults")
+@protected.get("/tts/defaults")
 def get_default_settings() -> dict:
     return dict(CHATTER_DEFAULTS)
 
 
-@router.get("/tts/settings")
+@protected.get("/tts/settings")
 def get_saved_settings() -> dict:
     return load_settings()
 
 
-@router.post("/tts/settings")
+@protected.post("/tts/settings")
 def update_settings(settings_payload: dict) -> dict:
     save_settings(settings_payload)
     return {"status": "saved"}
 
 
-@router.post("/tts/generate", response_model=TTSResponse)
+@protected.post("/tts/generate", response_model=TTSResponse)
 async def generate_tts(request: TTSRequest) -> TTSResponse:
     if not request.text and not request.text_files:
         raise HTTPException(status_code=400, detail="Provide either 'text' or 'text_files'.")
@@ -135,7 +160,7 @@ async def generate_tts(request: TTSRequest) -> TTSResponse:
         safe_cleanup(temp_paths)
 
 
-@router.post("/voice/convert", response_model=VoiceConversionResponse)
+@protected.post("/voice/convert", response_model=VoiceConversionResponse)
 async def convert_voice(request: VoiceConversionRequest) -> VoiceConversionResponse:
     temp_paths: List[Path] = []
     try:
@@ -187,6 +212,120 @@ async def convert_voice(request: VoiceConversionRequest) -> VoiceConversionRespo
         safe_cleanup(temp_paths)
 
 
-@router.get("/whisper/models")
+@protected.get("/whisper/models")
 def list_whisper_models() -> List[dict]:
     return [{"label": label, "code": code} for label, code in whisper_model_map.items()]
+
+
+# -----------------------------------------------------------------------------
+# Line-level generation
+# -----------------------------------------------------------------------------
+
+
+@protected.post("/lines/generate", response_model=LineGenerationResponse)
+async def generate_line(payload: LineGenerationRequest) -> LineGenerationResponse:
+    return await run_in_threadpool(generate_line_audio, payload)
+
+
+# -----------------------------------------------------------------------------
+# Batch job orchestration
+# -----------------------------------------------------------------------------
+
+
+@protected.post("/jobs", status_code=202)
+async def create_batch_job(request: BatchCreateRequest) -> dict:
+    job_id = await job_manager.create_job(request)
+    return {"job_id": job_id}
+
+
+@protected.get("/jobs/{job_id}", response_model=BatchJobStatus)
+async def get_batch_job(job_id: str) -> BatchJobStatus:
+    return await job_manager.get_job(job_id)
+
+
+@protected.post("/jobs/{job_id}/cancel")
+async def cancel_batch_job(job_id: str) -> dict:
+    await job_manager.cancel_job(job_id)
+    return {"job_id": job_id, "status": "cancelled"}
+
+
+@protected.get("/jobs/{job_id}/zip")
+async def download_job_zip(job_id: str) -> FileResponse:
+    path = await job_manager.get_job_zip_path(job_id)
+    return FileResponse(path, filename=path.name)
+
+
+# -----------------------------------------------------------------------------
+# Data discovery endpoints
+# -----------------------------------------------------------------------------
+
+
+@protected.get("/data/station-formats")
+def get_station_formats() -> List[dict]:
+    return list_station_formats()
+
+
+@protected.get("/data/station-formats/{template_id}")
+def get_station_format(template_id: str) -> dict:
+    return load_station_template(template_id)
+
+
+@protected.get("/data/sample-stations")
+def get_sample_station_list() -> List[dict]:
+    return list_sample_stations()
+
+
+@protected.get("/data/sample-stations/{station_id}")
+def get_sample_station(station_id: str) -> dict:
+    return load_sample_station(station_id)
+
+
+@protected.get("/data/sample-scripts")
+def get_sample_script_list() -> List[dict]:
+    return list_sample_scripts()
+
+
+@protected.get("/data/sample-scripts/{script_id}")
+def get_sample_script(script_id: str) -> dict:
+    return {"id": script_id, "content": load_sample_script(script_id)}
+
+
+@protected.get("/voices/reference")
+def get_reference_voice_metadata() -> List[dict]:
+    return list_reference_voices()
+
+
+@protected.get("/voices/reference/{voice}/{style}/{filename:path}")
+def stream_reference_audio(voice: str, style: str, filename: str) -> FileResponse:
+    path = get_reference_audio_path(voice, style, filename)
+    return FileResponse(path)
+
+
+@protected.get("/voices/clone")
+def get_clone_voice_metadata() -> List[dict]:
+    return list_clone_voices()
+
+
+@protected.get("/voices/clone/{voice}/{filename:path}")
+def stream_clone_audio(voice: str, filename: str) -> FileResponse:
+    path = get_clone_voice_path(voice, filename)
+    return FileResponse(path)
+
+
+# -----------------------------------------------------------------------------
+# ChatGPT-driven analysis
+# -----------------------------------------------------------------------------
+
+
+@protected.post("/scripts/analyze", response_model=AnalyzeScriptResponse)
+async def analyze_script(payload: AnalyzeScriptRequest) -> AnalyzeScriptResponse:
+    if text_preprocessor is None:
+        raise HTTPException(status_code=503, detail="OpenAI integration is not configured")
+    try:
+        processed = await text_preprocessor.process_batch(payload.lines)
+    except TextProcessingError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return AnalyzeScriptResponse(processed_lines=processed)
+
+
+router.include_router(protected)

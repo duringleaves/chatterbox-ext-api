@@ -1,4 +1,11 @@
 gradio
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+python-multipart
+aiofiles
+openai
 numpy
 faster-whisper
 openai-whisper
@@ -9,6 +16,9 @@ librosa==0.10.0
 s3tokenizer
 spaces
 peft
+pydantic-settings
+openai
+elevenlabs
 transformers==4.46.3
 diffusers==0.29.0
 omegaconf==2.3.0

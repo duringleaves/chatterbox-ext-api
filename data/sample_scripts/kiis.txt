@@ -1,0 +1,93 @@
+<STATION CALLS>
+[station]102 7, KISS FM
+[station][fast]102 7, KISS FM
+[station][slow]102 7, KISS FM
+[station]On 102 7, KISS FM
+[station][fast]On 102 7, KISS FM
+[station]From 102 7, KISS FM
+[station][slow]From 102 7, KISS FM
+
+<LEGAL CALLS>
+[legal calls]KIIS FM, LOS ANGELES
+[legal calls][fast]KIIS FM, LOS ANGELES
+[legal calls]KIIS FM, LOS ANGELES
+
+<SLOGAN>
+[normal]LA'S NUMBER ONE HIT MUSIC STATION
+[normal][fast]LA'S NUMBER ONE HIT MUSIC STATION
+[normal][slow]LA'S NUMBER ONE HIT MUSIC STATION
+[intense]LA'S NUMBER ONE HIT MUSIC STATION
+
+<MORNING SHOW>
+[normal]This Is RYAN SEACREST
+[normal]Wake Up With RYAN SEACREST
+[normal]You’re Listening To RYAN SEACREST
+[normal]RYAN SEACREST
+
+<MIDDAYS>
+[normal]GABBY DIAZ
+[normal]This Is GABBY DIAZ
+[normal]You’re Listening To GABBY DIAZ
+ 
+ <AFTERNOONS>
+[normal]JOJO WRIGHT
+[normal]This Is JOJO WRIGHT
+[normal]You’re Listening To JOJO WRIGHT
+ 
+ <NIGHTS>
+[normal] EJ IN LA
+[normal]This Is EJ IN LA
+[normal]You’re Listening To EJ IN LA
+
+<COUNTDOWN>
+[normal]AMERICAN TOP 40
+[normal]This Is AMERICAN TOP 40
+[normal]You’re Listening To AMERICAN TOP 40
+[normal]We’re Back To AMERICAN TOP 40
+
+<MIX SHOW>
+[normal]You’re In The Mix With SATURDAY NIGHT PARTY
+[normal]Live In The Mix With SATURDAY NIGHT PARTY
+[normal]We’re Back To SATURDAY NIGHT PARTY
+
+<WEBSITE>
+[normal]KIISFM DOT COM
+[normal]At KIISFM DOT COM
+[normal]Streaming Live At KIISFM DOT COM
+
+<FACEBOOK>
+[normal]AT 1027 KIIS FM
+[normal]Like Us On Facebook At 1027 KIIS FM
+[normal]Friend Us At 1027 KIIS FM
+
+<TWITTER>
+[normal]AT 1027 KIIS FM
+[normal]Follow Us On Twitter At 1027 KIIS FM
+[normal]Tweet Us At 1027 KIIS FM
+ 
+<MOBILE APP>
+[normal]I HEART RADIO APP
+[normal]Streaming Live With The I HEART RADIO APP
+[normal]Download The I HEART RADIO APP
+
+<STOPSET>
+[normal]In Minutes, On 102 7 KISS FM
+[normal]Coming Up On 102 7 KISS FM
+[normal]Back To The Music On 102 7 KISS FM
+ 
+<CONTEST>
+[normal]Listen To Win On 102 7 KISS FM
+[normal]Win It On 102 7 KISS FM
+[normal]Call Now To Win
+[normal]800 520 1027
+ 
+<CONCERT>
+[normal]Win Tickets On 102 7 KISS FM
+[normal]See Her Live From 102 7 KISS FM
+[normal]See Him Live From 102 7 KISS FM
+[normal]See Them Live From 102 7 KISS FM
+
+<NEW MUSIC>
+[normal]Here’s What’s New On 102 7 KISS FM
+[normal]New Music On 102 7 KISS FM
+[normal]New Music First On 102 7 KISS FM

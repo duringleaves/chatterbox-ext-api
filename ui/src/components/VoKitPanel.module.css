@@ -1,0 +1,24 @@
+.templateInput {
+  min-width: 200px;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.tableWrapper table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.tableWrapper table col:nth-child(2) {
+  width: 40%;
+}
+
+.tableWrapper table col:nth-child(3) {
+  width: 140px;
+}
+
+.tableWrapper table col:nth-child(4) {
+  width: 220px;
+}

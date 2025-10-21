@@ -10,3 +10,6 @@ __pycache__
 output/
 temp/
 api_temp/
+.env
+ui/node_modules/
+ui/dist/

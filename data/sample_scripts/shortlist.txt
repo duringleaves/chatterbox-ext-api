@@ -1,0 +1,69 @@
+<MORNING SHOW> 
+[normal]Wake up, Seattle... this is Ryan Seacrest starting your day on One Oh Six Seven The Vape. 
+[normal]Ryan Seacrest... keeping the hits rolling every morning on The Vape. 
+
+<MIDDAYS> 
+[normal]Your midday soundtrack... it’s Gabby Diaz, keeping Seattle moving on One Oh Six Seven The Vape. 
+[normal]You’re listening to Gabby Diaz... bringing you today’s biggest hits on The Vape. 
+
+<AFTERNOONS> 
+[normal]Ride home with JoJo Wright... Seattle afternoons sound better on One Oh Six Seven The Vape. 
+[normal]JoJo Wright... live and local for your drive... only on The Vape. 
+
+<NIGHTS> 
+[normal]This is EJ in LA... taking Seattle through the night on One Oh Six Seven The Vape. 
+[normal]You’re listening to EJ in LA... with more hits than the Seattle skyline has lights. 
+
+<COUNTDOWN> 
+[normal]We’re back to American Top Forty... counting down the biggest hits in Seattle on One Oh Six Seven The Vape. 
+[normal]This is American Top Forty... only on One Oh Six Seven The Vape. 
+
+<WEBSITE> 
+[normal]Streaming live right now... at One Oh Six Seven The Vape dot com. 
+[normal]Seattle’s new music is always online... at One Oh Six Seven The Vape dot com. 
+
+<SOCIAL> 
+[normal]Like us on Facebook at One Oh Six Seven The Vape. 
+[normal]Follow us on Twitter... stay connected with Seattle’s hit music on One Oh Six Seven The Vape. 
+[normal]Find us on TikTok and join the party... at One Oh Six Seven The Vape. 
+
+<MOBILE APP> 
+[normal]Take The Vape with you anywhere... stream it live on the iHeartRadio app. 
+[normal]Your hits... your station... always on the iHeartRadio app. 
+
+<STOPSET> 
+[normal]In minutes... back to more of Seattle’s hits... on One Oh Six Seven The Vape. 
+[normal]Coming up next... the songs you’re obsessed with... only on The Vape. 
+[normal]Back to the music... on One Oh Six Seven The Vape. 
+
+<CONTEST> 
+[normal]Listen to win... because The Vape is your connection to Seattle’s biggest prizes. 
+[normal]Your chance to call in and win... One Eight Hundred Five Two Oh One Oh Six Seven. 
+
+<CONCERT> 
+[normal]Win your tickets to see them live... only from One Oh Six Seven The Vape. 
+[normal]The hottest shows in Seattle... and your way in starts here... on The Vape. 
+[normal]See them live... from Seattle’s hit music station... One Oh Six Seven The Vape. 
+
+<NEW MUSIC> 
+[normal]World premieres... first listens... this is what’s new on One Oh Six Seven The Vape. 
+[normal]New music first... Seattle hears it here... only on The Vape. 
+
+<STATION CALLS> 
+[normal]One Oh Six Seven The Vape. 
+[[normal][fast]One Oh Six Seven The Vape. 
+[normal][slow]One Oh Six Seven The Vape. 
+[normal]On One Oh Six Seven The Vape. 
+[normal]From One Oh Six Seven The Vape. 
+
+<LEGAL CALLS> 
+[normal]K V P E Seattle. 
+[normal][fast]K V P E Seattle. 
+[intense]K V P E Seattle. 
+
+<SLOGAN> 
+[normal]Seattle’s Number One Hit Music Station. 
+[normal][fast]Seattle’s Number One Hit Music Station. 
+[normal][slow]Seattle’s Number One Hit Music Station. 
+[intense]Seattle’s Number One Hit Music Station. 
+[normal]The Hits... The Vibe... The Vape.

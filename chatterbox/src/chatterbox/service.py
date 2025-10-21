@@ -24,6 +24,8 @@ import csv
 import soundfile as sf
 import inspect, traceback
 from .vc import ChatterboxVC
+
+TTS_DEFAULTS_PATH = os.getenv("CHATTERBOX_TTS_DEFAULTS_PATH", "config/tts_defaults.json")
 try:
     import pyrnnoise
     _PYRNNOISE_AVAILABLE = True
@@ -171,7 +173,7 @@ def voice_conversion(input_audio_path, target_voice_audio_path, chunk_sec=60, ov
     return model_sr, result
 
 def default_settings():
-    return {
+    defaults = {
         "text_input": """Three Rings for the Elven-kings under the sky,
 
 Seven for the Dwarf-lords in their halls of stone,
@@ -221,6 +223,18 @@ In the Land of Mordor where the Shadows lie.""",
         "sound_words_field": "",
         "use_pyrnnoise_checkbox": False,
     }
+
+    if os.path.exists(TTS_DEFAULTS_PATH):
+        try:
+            with open(TTS_DEFAULTS_PATH, "r", encoding="utf-8") as f:
+                user_defaults = json.load(f)
+            if isinstance(user_defaults, dict):
+                defaults.update(user_defaults)
+                print(f"[CONFIG] Loaded TTS defaults from {TTS_DEFAULTS_PATH}")
+        except Exception as exc:
+            print(f"[CONFIG] Failed to load TTS defaults from {TTS_DEFAULTS_PATH}: {exc}")
+
+    return defaults
         
 # Download both punkt and punkt_tab if missing
 try:

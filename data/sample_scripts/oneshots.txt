@@ -1,0 +1,50 @@
+<STATION CALLS>
+[normal]102 7, KISS FM. 102 7, KISS FM. On 102 7, KISS FM. On 102 7 KISS FM. From 102 7 KISS FM. From 102 7, KISS FM
+
+<LEGAL CALLS>
+[normal]KIIS FM, LOS ANGELES. KIIS FM LOS ANGELES. KIIS FM LOS ANGELES!
+
+<SLOGAN>
+[normal]LA'S NUMBER ONE, HIT MUSIC STATION. LA'S NUMBER ONE HIT MUSIC STATION. LA'S, NUMBER ONE, HIT, MUSIC STATION... LA'S NUMBER ONE HIT MUSIC STATION!
+
+<MORNING SHOW>
+[normal]This Is RYAN SEACREST. Wake Up, With RYAN SEACREST. You’re Listening To RYAN SEACREST. RYAN SEACREST...
+
+<MIDDAYS>
+[normal]GABBY DIAZ... This Is GABBY DIAZ. You’re Listening To GABBY DIAZ.
+ 
+ <AFTERNOONS>
+[normal]JOJO WRIGHT... This Is JOJO WRIGHT. You’re Listening To JOJO WRIGHT.
+ 
+ <NIGHTS>
+[normal]EJ IN LA. This Is EJ IN LA. You’re Listening To EJ IN LA.
+
+<COUNTDOWN>
+[normal]AMERICAN TOP 40. This Is AMERICAN TOP 40. You’re Listening To AMERICAN TOP 40. We’re Back To AMERICAN TOP 40.
+
+<MIX SHOW>
+[normal]You’re In The Mix With SATURDAY NIGHT PARTY. Live In The Mix With SATURDAY NIGHT PARTY. We’re Back To SATURDAY NIGHT PARTY.
+
+<WEBSITE>
+[normal]KIIS FM dot COM. At KIIS FM dot COM. Streaming Live At KIIS FM dot COM.
+
+<FACEBOOK>
+[normal]AT 102 7 KIIS FM. Like Us On Facebook AT 1027 KIIS FM. Friend Us At 1027 KIIS FM.
+
+<TWITTER>
+[normal]AT 102 7 KIIS FM. Follow Us On Twitter At 1027 KIIS FM. Tweet Us At 1027 KIIS FM.
+ 
+<MOBILE APP>
+[normal]I HEART RADIO APP. Streaming Live With The I HEART RADIO APP. Download The I HEART RADIO APP...
+
+<STOPSET>
+[normal]In Minutes, On 102 7 KISS FM. Coming Up On 102 7 KISS FM... Back To The Music, On 102 7 KISS FM,
+ 
+<CONTEST>
+[normal]Listen To Win On 102 7 KISS FM. Win It On 102 7, KISS FM. Call Now To Win! 800 520 1027.
+ 
+<CONCERT>
+[normal]Win Tickets On 102 7 KISS FM. See Her Live From 102 7 KISS FM. See Him Live From 102 7 KISS FM. See Them Live From 102 7 KISS FM.
+
+<NEW MUSIC>
+[normal]Here’s What’s New On 102 7 KISS FM. New Music On 102 7 KISS FM. New Music First, On 102 7 KISS FM.
