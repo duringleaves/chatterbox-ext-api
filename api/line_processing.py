@@ -1,6 +1,7 @@
 """Utilities for single-line TTS generation and optional cloning."""
 from __future__ import annotations
 
+import math
 import random
 from pathlib import Path
 from typing import List, Tuple
@@ -76,7 +77,7 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
         payload.tag,
     )
 
-    applied_settings = {
+    initial_settings = {
         "temperature": options.temperature,
         "cfg_weight": options.cfg_weight,
         "exaggeration": options.exaggeration,
@@ -84,11 +85,27 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
 
     expected_settings = {}
     resolved = chatterbox_info.get("resolved_settings") or {}
+    overrides_applied = {}
     for key in ("temperature", "cfg_weight", "exaggeration"):
         value = resolved.get(key)
         if isinstance(value, (int, float)):
-            expected_settings[key] = float(value)
+            expected_value = float(value)
+            expected_settings[key] = expected_value
+            current_value = float(getattr(options, key))
+            if not math.isclose(current_value, expected_value, rel_tol=1e-6, abs_tol=1e-6):
+                overrides_applied[key] = {
+                    "requested": current_value,
+                    "config": expected_value,
+                }
+                setattr(options, key, expected_value)
 
+    applied_settings = {
+        "temperature": options.temperature,
+        "cfg_weight": options.cfg_weight,
+        "exaggeration": options.exaggeration,
+    }
+
+    requested_str = ", ".join(f"{key}={value:.3f}" for key, value in initial_settings.items())
     applied_str = ", ".join(f"{key}={value:.3f}" for key, value in applied_settings.items())
     expected_str = (
         ", ".join(f"{key}={value:.3f}" for key, value in expected_settings.items())
@@ -105,15 +122,26 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
     source_str = ", ".join(sources) if sources else "not found"
 
     LOGGER.info(
-        "Line %s using %s/%s (tag=%s) | applied TTS settings [%s] | chatterbox settings [%s] from %s",
+        "Line %s using %s/%s (tag=%s) | requested [%s] | applied [%s] | config [%s] | sources=%s",
         payload.line_id,
         payload.reference_voice,
         payload.reference_style,
         payload.tag or "default",
+        requested_str,
         applied_str,
         expected_str,
         source_str,
     )
+
+    if overrides_applied:
+        diff_str = "; ".join(
+            f"{key}: {vals['requested']:.3f} -> {vals['config']:.3f}" for key, vals in overrides_applied.items()
+        )
+        LOGGER.warning(
+            "Line %s overrides applied to match chatterbox settings: %s",
+            payload.line_id,
+            diff_str,
+        )
 
     reference_path = get_reference_audio_path(
         payload.reference_voice,
@@ -185,11 +213,14 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
 
     metadata.update(
         {
+            "tts_settings_request": requested_str,
+            "tts_settings_applied": applied_str,
             "tts_temperature": f"{applied_settings['temperature']:.3f}",
             "tts_cfg_weight": f"{applied_settings['cfg_weight']:.3f}",
             "tts_exaggeration": f"{applied_settings['exaggeration']:.3f}",
             "tts_settings_expected": expected_str,
             "tts_settings_source": source_str,
+            "tts_settings_match": "false" if overrides_applied else "true",
         }
     )
 
@@ -197,6 +228,10 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
         metadata["tts_default_settings_file"] = str(default_path)
     if tag_path:
         metadata["tts_tag_settings_file"] = str(tag_path)
+    if overrides_applied:
+        metadata["tts_settings_overrides"] = "; ".join(
+            f"{key}:{vals['requested']:.3f}->{vals['config']:.3f}" for key, vals in overrides_applied.items()
+        )
 
     if payload.clone_voice:
         metadata.update({

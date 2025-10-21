@@ -45,6 +45,13 @@ from chatterbox.service import (  # type: ignore
 )
 
 LOGGER = logging.getLogger("chatterbox.fastapi")
+if not LOGGER.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    handler.setFormatter(formatter)
+    LOGGER.addHandler(handler)
+LOGGER.setLevel(logging.INFO)
+LOGGER.propagate = False
 
 if Path.cwd() != BASE_DIR:
     os.chdir(BASE_DIR)
