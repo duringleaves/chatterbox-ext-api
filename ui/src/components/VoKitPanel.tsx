@@ -190,10 +190,17 @@ const applyStyleOverrides = (
   return merged;
 };
 
+const VARIANT_SUFFIX_MAP: Record<string, string> = {
+  fast: "fast",
+  slow: "slow",
+  intense: "intense"
+};
+
 const pickReferenceAudio = (
   voice: ReferenceVoice | undefined,
   styleName: string | null,
   key: string | null | undefined,
+  tag: string | null | undefined,
   current: string | null | undefined,
   seed: string
 ): string | null => {
@@ -202,16 +209,39 @@ const pickReferenceAudio = (
     return current ?? null;
   }
 
-  const pool = key
-    ? style.audio_files.filter((file) => file.toLowerCase().startsWith(key.toLowerCase()))
-    : style.audio_files;
+  const audioFiles = style.audio_files;
+  const normalizedKey = key?.toLowerCase().trim() ?? null;
+  const normalizedTag = tag?.toLowerCase().trim() ?? null;
+  const variantSuffix = normalizedTag ? VARIANT_SUFFIX_MAP[normalizedTag] : undefined;
+  const variantSuffixes = Object.values(VARIANT_SUFFIX_MAP);
+
+  const matchesKey = (file: string) => {
+    if (!normalizedKey) return true;
+    const lower = file.toLowerCase();
+    if (lower === normalizedKey) return true;
+    if (lower.startsWith(`${normalizedKey}.`)) return true;
+    return lower.startsWith(`${normalizedKey}_`);
+  };
+
+  const hasVariantSuffix = (file: string, suffix: string) => {
+    const lower = file.toLowerCase();
+    return lower.includes(`_${suffix}_`) || lower.endsWith(`_${suffix}.wav`) || lower.endsWith(`_${suffix}.mp3`) || lower.endsWith(`_${suffix}.flac`);
+  };
+
+  const isVariantFile = (file: string) => variantSuffixes.some((suffix) => hasVariantSuffix(file, suffix));
+
+  const keyedFiles = audioFiles.filter(matchesKey);
+  const baseCandidates = keyedFiles.filter((file) => !isVariantFile(file));
+  const variantCandidates = variantSuffix ? keyedFiles.filter((file) => hasVariantSuffix(file, variantSuffix)) : [];
+
+  const pool = variantCandidates.length > 0 ? variantCandidates : baseCandidates.length > 0 ? baseCandidates : keyedFiles.length > 0 ? keyedFiles : audioFiles;
 
   if (current && pool.includes(current)) {
     return current;
   }
 
-  const candidates = pool.length ? pool : style.audio_files;
-  const source = `${seed}|${voice?.name ?? ""}|${styleName ?? ""}|${key ?? ""}`;
+  const candidates = pool.length ? pool : audioFiles;
+  const source = `${seed}|${voice?.name ?? ""}|${styleName ?? ""}|${key ?? ""}|${normalizedTag ?? ""}`;
   let hash = 0;
   for (let i = 0; i < source.length; i += 1) {
     hash = (hash * 31 + source.charCodeAt(i)) | 0;
@@ -304,7 +334,14 @@ export const VoKitPanel = () => {
     setScriptLines((prev) => {
       let changed = false;
       const next = prev.map((line) => {
-        const suggested = pickReferenceAudio(voice, selectedStyle, line.referenceKey, line.referenceAudio, line.id);
+        const suggested = pickReferenceAudio(
+          voice,
+          selectedStyle,
+          line.referenceKey,
+          line.tag,
+          line.referenceAudio,
+          line.id
+        );
         if (!line.referenceAudio || line.autoReference) {
           const shouldUpdate = !line.referenceAudio || suggested !== line.referenceAudio;
           if (shouldUpdate) changed = true;
