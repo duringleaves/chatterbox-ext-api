@@ -6,19 +6,28 @@
   overflow-x: auto;
 }
 
-.tableWrapper table {
-  table-layout: fixed;
-  width: 100%;
+.sectionRow td {
+  background-color: rgba(148, 163, 184, 0.12);
+  color: #e2e8f0;
+  font-weight: 600;
 }
 
-.tableWrapper table col:nth-child(2) {
+.textCol {
   width: 40%;
 }
 
-.tableWrapper table col:nth-child(3) {
+.tagCol {
   width: 140px;
 }
 
-.tableWrapper table col:nth-child(4) {
-  width: 220px;
+.refCol {
+  width: 260px;
+}
+
+.statusCol {
+  width: 140px;
+}
+
+.actionsCol {
+  width: 180px;
 }

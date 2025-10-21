@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, Fragment, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Badge,
@@ -39,6 +39,7 @@ import {
   TTSOptions
 } from "@/lib/types";
 import classes from "./VoKitPanel.module.css";
+import { useApiKey } from "@/hooks/useApiKey";
 
 interface ScriptLine {
   id: string;
@@ -188,12 +189,6 @@ const applyStyleOverrides = (
   return merged;
 };
 
-const triggerPlayback = (url?: string) => {
-  if (!url) return;
-  const withTs = url.includes('?') ? `${url}&ts=${Date.now()}` : `${url}?ts=${Date.now()}`;
-  setPreviewUrl(withTs);
-};
-
 const pickReferenceAudio = (
   voice: ReferenceVoice | undefined,
   styleName: string | null,
@@ -243,6 +238,7 @@ export const VoKitPanel = () => {
     queryFn: async () => (await api.get<StationFormatDescriptor[]>("/data/station-formats")).data
   });
 
+  const { apiKey } = useApiKey();
   const [scriptLines, setScriptLines] = useState<ScriptLine[]>([]);
   const [scriptName, setScriptName] = useState<string>("Loaded script");
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
@@ -263,6 +259,7 @@ export const VoKitPanel = () => {
     setPreviewUrl(withTs);
   };
 
+  
   const defaults = defaultsQuery.data;
   const referenceVoices = referenceVoicesQuery.data ?? [];
   const cloneVoices = cloneVoicesQuery.data ?? [];
@@ -486,6 +483,20 @@ export const VoKitPanel = () => {
 
   const pendingLines = scriptLines.filter((line) => line.status !== "completed");
 
+  const groupedSections = useMemo(() => {
+    const map = new Map<string, ScriptLine[]>();
+    scriptLines.forEach((line) => {
+      if (!map.has(line.section)) {
+        map.set(line.section, []);
+      }
+      map.get(line.section)!.push(line);
+    });
+    return Array.from(map.entries());
+  }, [scriptLines]);
+
+  const buildReferenceUrl = (file: string | null) =>
+    getReferenceUrl(selectedVoice, selectedStyle, file, apiKey);
+
   const handleFileUpload = async (file: File | null) => {
     if (!file) return;
     const text = await file.text();
@@ -689,102 +700,108 @@ export const VoKitPanel = () => {
 
         <Space h="sm" />
         <div className={classes.tableWrapper}>
-          <Table striped highlightOnHover verticalSpacing="sm">
+          <Table highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th w={120}>Section</Table.Th>
-                <Table.Th>Text</Table.Th>
-                <Table.Th w={120}>Tag</Table.Th>
-                <Table.Th w={160}>Reference audio</Table.Th>
-                <Table.Th w={160}>Status</Table.Th>
-                <Table.Th w={200}>Actions</Table.Th>
+                <Table.Th className={classes.textCol}>Text</Table.Th>
+                <Table.Th className={classes.tagCol}>Tag</Table.Th>
+                <Table.Th className={classes.refCol}>Reference Audio</Table.Th>
+                <Table.Th className={classes.statusCol}>Status</Table.Th>
+                <Table.Th className={classes.actionsCol}>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {scriptLines.map((line) => (
-                <Table.Tr key={line.id}>
-                  <Table.Td>
-                    <Text fw={500}>{line.section}</Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Textarea
-                      autosize
-                      minRows={2}
-                      value={line.text}
-                      onChange={(event) =>
-                        setScriptLines((prev) => prev.map((item) => (item.id === line.id ? { ...item, text: event.currentTarget.value } : item)))
-                      }
-                    />
-                  </Table.Td>
-                  <Table.Td>
-                    <Select
-                      value={line.tag ?? ""}
-                      onChange={(value) =>
-                        setScriptLines((prev) => prev.map((item) => (item.id === line.id ? { ...item, tag: value || null } : item)))
-                      }
-                      data={tagOptions}
-                    />
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs">
-                      <Select
-                        flex={1}
-                        searchable
-                        clearable
-                        placeholder="Select"
-                        value={line.referenceAudio}
-                        data={activeStyle?.audio_files.map((file) => ({ value: file, label: file })) ?? []}
-                        onChange={(value) =>
-                          setScriptLines((prev) =>
-                            prev.map((item) => (item.id === line.id ? { ...item, referenceAudio: value } : item))
-                          )
-                        }
-                      />
-                      <PlayButton
-                        url={getReferenceUrl(selectedVoice, selectedStyle, line.referenceAudio)}
-                        onPlay={triggerPlayback}
-                      />
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <StatusBadge status={line.status} error={line.error} />
-                    {line.finalOutputs && line.finalOutputs.length > 0 && (
-                      <Stack gap={2} mt={4}>
-                        {line.finalOutputs
-                          .filter((file) => file.path.endsWith(".mp3"))
-                          .map((file) => (
-                            <Group gap="xs" key={file.path}>
-                              <PlayButton url={file.url} onPlay={triggerPlayback} />
-                              <Button component="a" href={file.url} download variant="subtle" size="xs">
-                                {file.path}
+              {groupedSections.map(([section, lines]) => (
+                <Fragment key={section}>
+                  <Table.Tr className={classes.sectionRow}>
+                    <Table.Td colSpan={5}>
+                      <Text fw={600} tt="uppercase" size="sm">
+                        {section}
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                  {lines.map((line) => {
+                    const mp3 = line.finalOutputs?.find((file) => file.path.endsWith(".mp3"));
+                    return (
+                      <Table.Tr key={line.id}>
+                        <Table.Td className={classes.textCol}>
+                          <Textarea
+                            autosize
+                            minRows={2}
+                            value={line.text}
+                            onChange={(event) =>
+                              setScriptLines((prev) =>
+                                prev.map((item) => (item.id === line.id ? { ...item, text: event.currentTarget.value } : item))
+                              )
+                            }
+                          />
+                        </Table.Td>
+                        <Table.Td className={classes.tagCol}>
+                          <Select
+                            value={line.tag ?? ""}
+                            onChange={(value) =>
+                              setScriptLines((prev) =>
+                                prev.map((item) => (item.id === line.id ? { ...item, tag: value || null } : item))
+                              )
+                            }
+                            data={tagOptions}
+                          />
+                        </Table.Td>
+                        <Table.Td className={classes.refCol}>
+                          <Stack gap={4}>
+                            <Select
+                              searchable
+                              clearable
+                              placeholder="Select"
+                              value={line.referenceAudio}
+                              data={activeStyle?.audio_files.map((file) => ({ value: file, label: file })) ?? []}
+                              onChange={(value) =>
+                                setScriptLines((prev) =>
+                                  prev.map((item) => (item.id === line.id ? { ...item, referenceAudio: value } : item))
+                                )
+                              }
+                            />
+                            <PlayButton url={buildReferenceUrl(line.referenceAudio ?? null)} onPlay={triggerPlayback} label="Preview" />
+                          </Stack>
+                        </Table.Td>
+                        <Table.Td className={classes.statusCol}>
+                          <StatusBadge status={line.status} error={line.error} />
+                        </Table.Td>
+                        <Table.Td className={classes.actionsCol}>
+                          <Stack gap={6}>
+                            <Button
+                              size="xs"
+                              color="violet"
+                              onClick={() => {
+                                setScriptLines((prev) =>
+                                  prev.map((item) => (item.id === line.id ? { ...item, status: "processing", error: null } : item))
+                                );
+                                singleLineMutation.mutate(line);
+                              }}
+                              loading={singleLineMutation.isLoading && singleLineMutation.variables?.id === line.id}
+                              disabled={!baseOptions}
+                            >
+                              Generate
+                            </Button>
+                            <Group gap="xs">
+                              <PlayButton url={mp3?.url} onPlay={triggerPlayback} />
+                              <Button
+                                size="xs"
+                                variant="light"
+                                component="a"
+                                href={mp3?.url}
+                                download
+                                disabled={!mp3?.url}
+                              >
+                                Download
                               </Button>
                             </Group>
-                          ))}
-                      </Stack>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs">
-                      <Button
-                        size="xs"
-                        color="violet"
-                        onClick={() => {
-                          setScriptLines((prev) => prev.map((item) => (item.id === line.id ? { ...item, status: "processing", error: null } : item)));
-                          singleLineMutation.mutate(line);
-                        }}
-                        loading={singleLineMutation.isLoading && singleLineMutation.variables?.id === line.id}
-                        disabled={!baseOptions}
-                      >
-                        Generate
-                      </Button>
-                      {line.finalOutputs && line.finalOutputs[0]?.url && (
-                        <Button component="a" size="xs" variant="outline" href={line.finalOutputs[0].url} target="_blank">
-                          Preview
-                        </Button>
-                      )}
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
+                          </Stack>
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
+                </Fragment>
               ))}
             </Table.Tbody>
           </Table>
@@ -797,20 +814,22 @@ export const VoKitPanel = () => {
         </Alert>
       )}
       {previewUrl && (
-        <audio key={previewUrl} src={previewUrl} autoPlay controls style={{ display: "none" }} />
+        <audio key={previewUrl} src={previewUrl} autoPlay onEnded={() => setPreviewUrl(null)} style={{ display: "none" }} />
       )}
     </Stack>
   );
 };
 
 
-const getReferenceUrl = (voice: string | null, style: string | null, file: string | null) => {
+const getReferenceUrl = (voice: string | null, style: string | null, file: string | null, apiKey?: string | null) => {
   if (!voice || !style || !file) return undefined;
   const encoded = encodeURIComponent(file);
-  return `/voices/reference/${encodeURIComponent(voice)}/${encodeURIComponent(style)}/${encoded}`;
+  const base = `/voices/reference/${encodeURIComponent(voice)}/${encodeURIComponent(style)}/${encoded}`;
+  if (!apiKey) return base;
+  return `${base}?api_key=${encodeURIComponent(apiKey)}`;
 };
 
-const PlayButton = ({ url, onPlay }: { url?: string; onPlay?: (url: string) => void }) => (
+const PlayButton = ({ url, onPlay, label = "Play" }: { url?: string; onPlay?: (url: string) => void; label?: string }) => (
   <Button
     size="xs"
     variant="light"
@@ -818,7 +837,7 @@ const PlayButton = ({ url, onPlay }: { url?: string; onPlay?: (url: string) => v
     disabled={!url}
     onClick={() => url && onPlay?.(url)}
   >
-    Play
+    {label}
   </Button>
 );
 
