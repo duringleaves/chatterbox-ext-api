@@ -94,7 +94,6 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
 
     clone_file = payload.clone_audio
     if payload.clone_voice:
-        clone_file = payload.clone_audio
         available_clones = {entry["name"]: entry["files"] for entry in list_clone_voices()}
         if payload.clone_voice not in available_clones:
             raise HTTPException(status_code=404, detail="Clone voice not found")
@@ -113,19 +112,19 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
         sf.write(clone_wav, audio, sr)
         final_files.append(clone_wav)
 
-        for fmt in options.export_formats:
-            fmt_lower = fmt.lower()
-            if fmt_lower == "wav":
-                continue
-            segment = AudioSegment.from_wav(clone_wav)
-            export_kwargs = {"bitrate": "320k"} if fmt_lower == "mp3" else {}
-            out_path = clone_wav.with_suffix(f".{fmt_lower}")
-            segment.export(out_path, format=fmt_lower, **export_kwargs)
-            final_files.append(out_path)
+        mp3_path = clone_wav.with_suffix(".mp3")
+        segment = AudioSegment.from_wav(clone_wav)
+        segment.export(mp3_path, format="mp3", bitrate="320k")
+        final_files.append(mp3_path)
+        # keep raw wav so UI can inspect waveform
+        final_files.append(base_wav)
     else:
-        final_files = raw_outputs
+        mp3_path = base_wav.with_suffix(".mp3")
+        segment = AudioSegment.from_wav(base_wav)
+        segment.export(mp3_path, format="mp3", bitrate="320k")
+        final_files.extend([base_wav, mp3_path])
 
-    final_results = [to_file_result(path) for path in final_files]
+    final_results = [to_file_result(path) for path in final_files if path.exists()]
 
     metadata = {
         "reference_voice": payload.reference_voice,

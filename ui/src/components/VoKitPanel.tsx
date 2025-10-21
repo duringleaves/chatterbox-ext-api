@@ -21,7 +21,7 @@ import {
   Title
 } from "@mantine/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { IconAlertCircle, IconChecks } from "@tabler/icons-react";
+import { IconAlertCircle, IconChecks, IconPlayerPlay } from "@tabler/icons-react";
 import { api } from "@/lib/api";
 import {
   AnalyzeResponse,
@@ -713,26 +713,39 @@ export const VoKitPanel = () => {
                     />
                   </Table.Td>
                   <Table.Td>
-                    <Select
-                      searchable
-                      clearable
-                      placeholder="Select"
-                      value={line.referenceAudio}
-                      data={activeStyle?.audio_files.map((file) => ({ value: file, label: file })) ?? []}
-                      onChange={(value) =>
-                        setScriptLines((prev) => prev.map((item) => (item.id === line.id ? { ...item, referenceAudio: value } : item)))
-                      }
-                    />
+                    <Group gap="xs">
+                      <Select
+                        flex={1}
+                        searchable
+                        clearable
+                        placeholder="Select"
+                        value={line.referenceAudio}
+                        data={activeStyle?.audio_files.map((file) => ({ value: file, label: file })) ?? []}
+                        onChange={(value) =>
+                          setScriptLines((prev) =>
+                            prev.map((item) => (item.id === line.id ? { ...item, referenceAudio: value } : item))
+                          )
+                        }
+                      />
+                      <PlayButton
+                        url={line.referenceAudio ? getReferenceUrl(selectedVoice, selectedStyle, line.referenceAudio) : undefined}
+                      />
+                    </Group>
                   </Table.Td>
                   <Table.Td>
                     <StatusBadge status={line.status} error={line.error} />
                     {line.finalOutputs && line.finalOutputs.length > 0 && (
                       <Stack gap={2} mt={4}>
-                        {line.finalOutputs.map((file) => (
-                          <Button key={file.path} component="a" href={file.url} download variant="subtle" size="xs">
-                            {file.path}
-                          </Button>
-                        ))}
+                        {line.finalOutputs
+                          .filter((file) => file.path.endsWith(".mp3"))
+                          .map((file) => (
+                            <Group gap="xs" key={file.path}>
+                              <PlayButton url={file.url} />
+                              <Button component="a" href={file.url} download variant="subtle" size="xs">
+                                {file.path}
+                              </Button>
+                            </Group>
+                          ))}
                       </Stack>
                     )}
                   </Table.Td>
@@ -770,6 +783,25 @@ export const VoKitPanel = () => {
         </Alert>
       )}
     </Stack>
+  );
+};
+
+
+const PlayButton = ({ url }: { url?: string }) => {
+  if (!url) {
+    return <Button size="xs" variant="subtle" disabled leftSection={<IconPlayerPlay size={14} />}>Play</Button>;
+  }
+  return (
+    <Button
+      size="xs"
+      variant="light"
+      leftSection={<IconPlayerPlay size={14} />}
+      component="a"
+      href={url}
+      target="_blank"
+    >
+      Play
+    </Button>
   );
 };
 
