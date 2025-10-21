@@ -5,12 +5,17 @@ import random
 from pathlib import Path
 from typing import List, Tuple
 
+import soundfile as sf
 from fastapi import HTTPException
 from pydub import AudioSegment
-import soundfile as sf
 
-from .core import generate_batch_tts
-from .data_service import get_clone_voice_path, get_reference_audio_path, list_clone_voices
+from .core import LOGGER, generate_batch_tts
+from .data_service import (
+    get_clone_voice_path,
+    get_reference_audio_path,
+    list_clone_voices,
+    resolve_chatterbox_settings,
+)
 from .schemas import LineGenerationRequest, LineGenerationResponse, TTSOptions
 from .utils import build_sound_words_text, resolve_whisper_label, to_file_result
 
@@ -64,6 +69,51 @@ def ensure_wav_in_exports(exports: List[str]) -> List[str]:
 def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationResponse:
     options = TTSOptions(**payload.options.model_dump())
     options.export_formats = ensure_wav_in_exports(options.export_formats)
+
+    chatterbox_info = resolve_chatterbox_settings(
+        payload.reference_voice,
+        payload.reference_style,
+        payload.tag,
+    )
+
+    applied_settings = {
+        "temperature": options.temperature,
+        "cfg_weight": options.cfg_weight,
+        "exaggeration": options.exaggeration,
+    }
+
+    expected_settings = {}
+    resolved = chatterbox_info.get("resolved_settings") or {}
+    for key in ("temperature", "cfg_weight", "exaggeration"):
+        value = resolved.get(key)
+        if isinstance(value, (int, float)):
+            expected_settings[key] = float(value)
+
+    applied_str = ", ".join(f"{key}={value:.3f}" for key, value in applied_settings.items())
+    expected_str = (
+        ", ".join(f"{key}={value:.3f}" for key, value in expected_settings.items())
+        if expected_settings
+        else "n/a"
+    )
+    sources = []
+    tag_path = chatterbox_info.get("tag_path")
+    default_path = chatterbox_info.get("default_path")
+    if tag_path:
+        sources.append(f"tag:{tag_path}")
+    if default_path:
+        sources.append(f"default:{default_path}")
+    source_str = ", ".join(sources) if sources else "not found"
+
+    LOGGER.info(
+        "Line %s using %s/%s (tag=%s) | applied TTS settings [%s] | chatterbox settings [%s] from %s",
+        payload.line_id,
+        payload.reference_voice,
+        payload.reference_style,
+        payload.tag or "default",
+        applied_str,
+        expected_str,
+        source_str,
+    )
 
     reference_path = get_reference_audio_path(
         payload.reference_voice,
@@ -132,6 +182,21 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
         "reference_audio": payload.reference_audio,
         "tag": payload.tag or "",
     }
+
+    metadata.update(
+        {
+            "tts_temperature": f"{applied_settings['temperature']:.3f}",
+            "tts_cfg_weight": f"{applied_settings['cfg_weight']:.3f}",
+            "tts_exaggeration": f"{applied_settings['exaggeration']:.3f}",
+            "tts_settings_expected": expected_str,
+            "tts_settings_source": source_str,
+        }
+    )
+
+    if default_path:
+        metadata["tts_default_settings_file"] = str(default_path)
+    if tag_path:
+        metadata["tts_tag_settings_file"] = str(tag_path)
 
     if payload.clone_voice:
         metadata.update({

@@ -18,6 +18,7 @@ from .core import (
     CHATTER_DEFAULTS,
     DEVICE,
     GENERATION_LOCK,
+    LOGGER,
     OUTPUT_DIR,
     TEMP_DIR,
     chatter_voice_conversion,
@@ -111,6 +112,17 @@ async def generate_tts(request: TTSRequest) -> TTSResponse:
         whisper_label = resolve_whisper_label(request.options.whisper_model)
         sound_words_field = build_sound_words_text(request.options)
         export_formats = request.options.export_formats
+
+        LOGGER.info(
+            "/tts/generate | prompt=%s | temperature=%.3f cfg_weight=%.3f exaggeration=%.3f | text_chars=%d | text_files=%d | include_settings=%s",
+            audio_prompt_path or request.options.reference_audio_path or "none",
+            request.options.temperature,
+            request.options.cfg_weight,
+            request.options.exaggeration,
+            len(request.text or ""),
+            len(request.text_files or []),
+            request.include_settings_files,
+        )
 
         async with GENERATION_LOCK:
             output_paths: List[str] = await run_in_threadpool(

@@ -2,14 +2,52 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 
 from .config import settings
 
 IGNORED_FILES = {".DS_Store"}
+
+
+def _relative_to_data_root(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(settings.resolved_data_dir))
+    except ValueError:
+        return str(path)
+
+
+def _read_json_if_exists(path: Path) -> Optional[Dict[str, Any]]:
+    if not path.exists():
+        return None
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except json.JSONDecodeError:
+        return None
+
+
+def _tag_variants(tag: str) -> List[str]:
+    normalized = tag.strip().lower()
+    if not normalized:
+        return []
+    candidates = [normalized]
+    candidates.append(normalized.replace(" ", "_"))
+    candidates.append(normalized.replace("-", "_"))
+    slug = re.sub(r"[^a-z0-9]+", "_", normalized).strip("_")
+    if slug:
+        candidates.append(slug)
+    # Preserve order while removing duplicates
+    seen: set[str] = set()
+    unique: List[str] = []
+    for candidate in candidates:
+        if candidate and candidate not in seen:
+            unique.append(candidate)
+            seen.add(candidate)
+    return unique
 
 
 def _safe_listdir(directory: Path) -> List[Path]:
@@ -124,6 +162,63 @@ def list_reference_voices() -> List[Dict]:
             "styles": styles,
         })
     return voices
+
+
+def resolve_chatterbox_settings(
+    voice: str,
+    style: str,
+    tag: Optional[str] = None,
+) -> Dict[str, Optional[Any]]:
+    base = settings.resolved_data_dir / "reference_voices"
+    style_dir = (base / voice / style).resolve()
+    try:
+        style_dir = _ensure_inside(base, style_dir)
+    except HTTPException:
+        return {
+            "default_settings": None,
+            "default_path": None,
+            "tag_settings": None,
+            "tag_path": None,
+            "resolved_settings": None,
+        }
+
+    default_path = (style_dir / "chatterbox_settings.json").resolve()
+    try:
+        default_path = _ensure_inside(base, default_path)
+    except HTTPException:
+        default_data = None
+    else:
+        default_data = _read_json_if_exists(default_path)
+
+    tag_data = None
+    tag_path: Optional[Path] = None
+    if tag:
+        for variant in _tag_variants(tag):
+            candidate = (style_dir / f"chatterbox_settings_{variant}.json").resolve()
+            try:
+                candidate = _ensure_inside(base, candidate)
+            except HTTPException:
+                continue
+            tag_data = _read_json_if_exists(candidate)
+            if tag_data is not None:
+                tag_path = candidate
+                break
+
+    resolved: Optional[Dict[str, Any]] = None
+    if default_data or tag_data:
+        resolved = {}
+        if default_data:
+            resolved.update(default_data)
+        if tag_data:
+            resolved.update(tag_data)
+
+    return {
+        "default_settings": default_data,
+        "default_path": _relative_to_data_root(default_path) if default_data else None,
+        "tag_settings": tag_data,
+        "tag_path": _relative_to_data_root(tag_path) if tag_path else None,
+        "resolved_settings": resolved,
+    }
 
 
 def get_reference_audio_path(voice: str, style: str, filename: str) -> Path:
