@@ -305,9 +305,10 @@ export const VoKitPanel = () => {
       let changed = false;
       const next = prev.map((line) => {
         const suggested = pickReferenceAudio(voice, selectedStyle, line.referenceKey, line.referenceAudio, line.id);
-        if (suggested && suggested !== line.referenceAudio) {
-          changed = true;
-          return { ...line, referenceAudio: suggested };
+        if (!line.referenceAudio || line.autoReference) {
+          const shouldUpdate = !line.referenceAudio || suggested !== line.referenceAudio;
+          if (shouldUpdate) changed = true;
+          return { ...line, referenceAudio: suggested, autoReference: true };
         }
         return line;
       });
@@ -772,7 +773,11 @@ export const VoKitPanel = () => {
                               data={activeStyle?.audio_files.map((file) => ({ value: file, label: file })) ?? []}
                               onChange={(value) =>
                                 setScriptLines((prev) =>
-                                  prev.map((item) => (item.id === line.id ? { ...item, referenceAudio: value } : item))
+                                  prev.map((item) =>
+                                    item.id === line.id
+                                      ? { ...item, referenceAudio: value, autoReference: value ? false : item.autoReference }
+                                      : item
+                                  )
                                 )
                               }
                             />

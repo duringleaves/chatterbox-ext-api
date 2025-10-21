@@ -43,7 +43,7 @@ export default function App() {
         <Container size="lg" h="100%">
           <Group align="center" justify="space-between" h="100%">
             <Title order={3} c="violet.2">
-              Chatterbox Studio
+              RW VO Studio
             </Title>
             <Group gap="xs">
               <TextInput
