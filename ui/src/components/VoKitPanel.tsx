@@ -297,6 +297,7 @@ export const VoKitPanel = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedSampleStationId, setSelectedSampleStationId] = useState<string | null>(null);
   const [batchJobId, setBatchJobId] = useState<string | null>(null);
+  const [latestZipFile, setLatestZipFile] = useState<FileResult | null>(null);
 
   const triggerPlayback = (url?: string) => {
     if (!url) return;
@@ -482,6 +483,7 @@ export const VoKitPanel = () => {
       return res.data.job_id;
     },
     onSuccess: (jobId) => {
+      setLatestZipFile(null);
       setBatchJobId(jobId);
       setScriptLines((prev) => prev.map((line) => (line.status === "completed" ? line : { ...line, status: "processing", error: null })));
     }
@@ -512,6 +514,12 @@ export const VoKitPanel = () => {
     );
     if (["completed", "cancelled", "failed"].includes(status.state)) {
       setBatchJobId(null);
+    }
+    if (status.zip_file) {
+      setLatestZipFile(status.zip_file);
+    }
+    if (status.state === "failed") {
+      setLatestZipFile((prev) => (status.zip_file ? status.zip_file : prev));
     }
   }, [batchStatusQuery.data]);
 
@@ -546,6 +554,8 @@ export const VoKitPanel = () => {
     });
     return Array.from(map.entries());
   }, [scriptLines]);
+
+  const bundleZip = batchStatusQuery.data?.zip_file ?? latestZipFile;
 
   const buildReferenceUrl = (file: string | null) =>
     getReferenceUrl(selectedVoice, selectedStyle, file, apiKey);
@@ -583,17 +593,6 @@ export const VoKitPanel = () => {
 
             <Tabs.Panel value="upload" pt="md">
               <FileInput accept="text/plain" placeholder="Select .txt" onChange={handleFileUpload} />
-            </Tabs.Panel>
-
-            <Tabs.Panel value="sample" pt="md">
-              <Group align="flex-end" gap="md">
-                <Select
-                  label="Sample script"
-                  placeholder="Select"
-                  data={sampleScriptsQuery.data?.map((item) => ({ value: item.id, label: item.filename })) ?? []}
-                  onChange={(value) => value && loadSampleScript(value)}
-                />
-              </Group>
             </Tabs.Panel>
 
             <Tabs.Panel value="format" pt="md">
@@ -740,11 +739,11 @@ export const VoKitPanel = () => {
         </Group>
         <Space h="md" />
 
-        {batchStatusQuery.data?.zip_file && (
+        {bundleZip && (
           <Alert color="teal" radius="sm" title="Bundle ready" icon={<IconChecks size={16} />}>
             <Group gap="sm" align="center">
               <Text>Download the stitched bundle:</Text>
-              <Button component="a" href={batchStatusQuery.data.zip_file.url} variant="light" size="xs">
+              <Button component="a" href={bundleZip.url ?? undefined} variant="light" size="xs" disabled={!bundleZip.url}>
                 Download ZIP
               </Button>
             </Group>
