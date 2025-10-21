@@ -599,16 +599,6 @@ export const VoKitPanel = () => {
               <Stack>
                 <Group align="flex-end" gap="md">
                   <Select
-                    label="Station format"
-                    placeholder="Select"
-                    data={stationFormatsQuery.data?.map((item) => ({ value: item.id, label: item.id })) ?? []}
-                    value={selectedTemplateId}
-                    onChange={(value) => {
-                      setSelectedTemplateId(value);
-                      if (value) loadStationTemplate(value);
-                    }}
-                  />
-                  <Select
                     label="Sample station"
                     placeholder="Optional"
                     data={sampleStationsQuery.data?.map((item) => ({ value: item.id, label: item.filename })) ?? []}
@@ -620,6 +610,17 @@ export const VoKitPanel = () => {
                       }
                     }}
                   />
+                  <Select
+                    label="Station format"
+                    placeholder="Select"
+                    data={stationFormatsQuery.data?.map((item) => ({ value: item.id, label: item.id })) ?? []}
+                    value={selectedTemplateId}
+                    onChange={(value) => {
+                      setSelectedTemplateId(value);
+                      if (value) loadStationTemplate(value);
+                    }}
+                  />
+                  
                 </Group>
                 <Flex wrap="wrap" gap="sm">
                   {Object.entries(stationFormValues).map(([key, value]) => (

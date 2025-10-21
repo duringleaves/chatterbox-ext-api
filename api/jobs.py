@@ -112,41 +112,62 @@ class JobManager:
             job.error = f"Failed to build ZIP: {exc}"
 
     def _persist_line_outputs(self, job: BatchJob, line_id: str, response: LineGenerationResponse) -> None:
-        line_dir_final = job.dir / "final" / line_id
-        line_dir_raw = job.dir / "raw" / line_id
-        line_dir_final.mkdir(parents=True, exist_ok=True)
-        line_dir_raw.mkdir(parents=True, exist_ok=True)
+        final_dir = job.dir / "final"
+        raw_dir = job.dir / "raw"
+        final_dir.mkdir(parents=True, exist_ok=True)
+        raw_dir.mkdir(parents=True, exist_ok=True)
 
-        for dest_dir, outputs in ((line_dir_final, response.final_outputs), (line_dir_raw, response.raw_outputs)):
+        def copy_wav(src_path: Path, target_dir: Path) -> None:
+            if src_path.suffix.lower() != ".wav" or not src_path.exists():
+                return
+            base_name = f"{line_id}_{src_path.name}"
+            dest_path = target_dir / base_name
+            index = 1
+            while dest_path.exists():
+                dest_path = target_dir / f"{line_id}_{index}_{src_path.name}"
+                index += 1
+            shutil.copy2(src_path, dest_path)
+
+        for dest_dir, outputs in ((final_dir, response.final_outputs), (raw_dir, response.raw_outputs)):
             for item in outputs:
                 src = _resolve_path(item)
-                if not src.exists():
-                    continue
-                shutil.copy2(src, dest_dir / src.name)
+                copy_wav(src, dest_dir)
 
     def _build_zip(self, job: BatchJob) -> None:
-        concatenated_path = job.dir / f"{job.id}_concatenated.wav"
-        segments = []
+        concatenated_final_path = job.dir / "concatenated_final.wav"
+        concatenated_raw_path = job.dir / "concatenated_raw.wav"
+        final_segments = []
+        raw_segments = []
         for line_state in job.lines.values():
             if line_state.status != LineStatus.completed or not line_state.result:
                 continue
-            source_path = _first_wav(line_state.result.final_outputs) or _first_wav(line_state.result.raw_outputs)
-            if source_path and source_path.exists():
-                segments.append(AudioSegment.from_wav(source_path))
-        if segments:
-            combined = segments[0]
-            for seg in segments[1:]:
-                combined += seg
-            combined.export(concatenated_path, format="wav")
+            final_source = _first_wav(line_state.result.final_outputs) or _first_wav(line_state.result.raw_outputs)
+            raw_source = _first_wav(line_state.result.raw_outputs)
+            if final_source and final_source.exists():
+                final_segments.append(AudioSegment.from_wav(final_source))
+            if raw_source and raw_source.exists():
+                raw_segments.append(AudioSegment.from_wav(raw_source))
+        if final_segments:
+            combined_final = final_segments[0]
+            for segment in final_segments[1:]:
+                combined_final += segment
+            combined_final.export(concatenated_final_path, format="wav")
+        if raw_segments:
+            combined_raw = raw_segments[0]
+            for segment in raw_segments[1:]:
+                combined_raw += segment
+            combined_raw.export(concatenated_raw_path, format="wav")
 
         zip_path = job.dir / f"{job.id}.zip"
         with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            if concatenated_path.exists():
-                zf.write(concatenated_path, arcname=f"concatenated/{concatenated_path.name}")
+            if concatenated_final_path.exists():
+                zf.write(concatenated_final_path, arcname="concatenated/final.wav")
+            if concatenated_raw_path.exists():
+                zf.write(concatenated_raw_path, arcname="concatenated/raw.wav")
             for folder in [job.dir / "final", job.dir / "raw"]:
                 if folder.exists():
-                    for path in folder.rglob("*"):
-                        if path.is_file():
+                    for path in folder.iterdir():
+                        if path.is_file() and path.suffix.lower() == ".wav":
                             arcname = path.relative_to(job.dir)
                             zf.write(path, arcname=str(arcname))
         job.zip_path = zip_path
