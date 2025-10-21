@@ -1,5 +1,6 @@
 import { ChangeEvent, Fragment, useEffect, useMemo, useState } from "react";
 import {
+  ActionIcon,
   Alert,
   Badge,
   Button,
@@ -21,7 +22,7 @@ import {
   Title
 } from "@mantine/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { IconAlertCircle, IconChecks, IconPlayerPlay } from "@tabler/icons-react";
+import { IconAlertCircle, IconChecks, IconDownload, IconPlayerPlay } from "@tabler/icons-react";
 import { api } from "@/lib/api";
 import {
   AnalyzeResponse,
@@ -798,25 +799,28 @@ export const VoKitPanel = () => {
                               Generate
                             </Button>
                             <Group gap="xs">
-                              <Button
-                                size="xs"
+                              <ActionIcon
                                 variant="light"
-                                leftSection={<IconPlayerPlay size={14} />}
+                                size="md"
+                                radius="md"
+                                color="grape"
                                 disabled={!mp3?.url || line.status === "processing"}
                                 onClick={() => mp3?.url && triggerPlayback(mp3.url)}
                               >
-                                Play
-                              </Button>
-                              <Button
-                                size="xs"
+                                <IconPlayerPlay size={16} />
+                              </ActionIcon>
+                              <ActionIcon
                                 variant="light"
+                                size="md"
+                                radius="md"
+                                color="grape"
                                 component="a"
-                                href={mp3?.url}
+                                href={mp3?.url ?? undefined}
                                 download
                                 disabled={!mp3?.url || line.status === "processing"}
                               >
-                                Download
-                              </Button>
+                                <IconDownload size={16} />
+                              </ActionIcon>
                             </Group>
                           </Stack>
                         </Table.Td>
@@ -851,13 +855,23 @@ const getReferenceUrl = (voice: string | null, style: string | null, file: strin
   return `${base}?api_key=${encodeURIComponent(apiKey)}`;
 };
 
-const PlayButton = ({ url, onPlay, label = "Play" }: { url?: string; onPlay?: (url: string) => void; label?: string }) => (
+const PlayButton = ({
+  url,
+  onPlay,
+  label = "Play",
+  disabled = false
+}: {
+  url?: string;
+  onPlay?: (url: string) => void;
+  label?: string;
+  disabled?: boolean;
+}) => (
   <Button
     size="xs"
     variant="light"
     leftSection={<IconPlayerPlay size={14} />}
-    disabled={!url}
-    onClick={() => url && onPlay?.(url)}
+    disabled={disabled || !url}
+    onClick={() => url && !disabled && onPlay?.(url)}
   >
     {label}
   </Button>
