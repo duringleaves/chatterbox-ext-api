@@ -24,6 +24,7 @@ services:
       HF_HUB_DOWNLOAD_TIMEOUT: "60"
       NVIDIA_VISIBLE_DEVICES: "all"
     volumes:
+      - ./data:/app/data:ro
       - ./output:/app/output
       - ./temp:/app/temp
       - ./settings.json:/app/settings.json:rw

@@ -798,14 +798,22 @@ export const VoKitPanel = () => {
                               Generate
                             </Button>
                             <Group gap="xs">
-                              <PlayButton url={mp3?.url} onPlay={triggerPlayback} />
+                              <Button
+                                size="xs"
+                                variant="light"
+                                leftSection={<IconPlayerPlay size={14} />}
+                                disabled={!mp3?.url || line.status === "processing"}
+                                onClick={() => mp3?.url && triggerPlayback(mp3.url)}
+                              >
+                                Play
+                              </Button>
                               <Button
                                 size="xs"
                                 variant="light"
                                 component="a"
                                 href={mp3?.url}
                                 download
-                                disabled={!mp3?.url}
+                                disabled={!mp3?.url || line.status === "processing"}
                               >
                                 Download
                               </Button>
