@@ -332,10 +332,13 @@ def stream_clone_audio(voice: str, filename: str) -> FileResponse:
 @protected.post("/scripts/analyze", response_model=AnalyzeScriptResponse)
 async def analyze_script(payload: AnalyzeScriptRequest) -> AnalyzeScriptResponse:
     if text_preprocessor is None:
+        LOGGER.warning("/scripts/analyze requested but OpenAI integration is not configured")
         raise HTTPException(status_code=503, detail="OpenAI integration is not configured")
+    LOGGER.info("/scripts/analyze processing %s lines", len(payload.lines))
     try:
         processed = await text_preprocessor.process_batch(payload.lines)
     except TextProcessingError as exc:
+        LOGGER.error("/scripts/analyze failed: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return AnalyzeScriptResponse(processed_lines=processed)
 

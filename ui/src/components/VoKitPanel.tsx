@@ -292,6 +292,7 @@ export const VoKitPanel = () => {
   const [selectedSampleStationId, setSelectedSampleStationId] = useState<string | null>(null);
   const [batchJobId, setBatchJobId] = useState<string | null>(null);
   const [latestZipFile, setLatestZipFile] = useState<FileResult | null>(null);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   const triggerPlayback = (url?: string) => {
     if (!url) return;
@@ -383,8 +384,37 @@ export const VoKitPanel = () => {
       const res = await api.post<AnalyzeResponse>("/scripts/analyze", { lines });
       return res.data.processed_lines;
     },
+    onMutate: () => {
+      setAnalyzeError(null);
+    },
     onSuccess: (processed) => {
-      setScriptLines((prev) => prev.map((line, index) => ({ ...line, text: processed[index] ?? line.text })));
+      setAnalyzeError(null);
+      setScriptLines((prev) =>
+        prev.map((line, index) => {
+          const processedLine = processed[index];
+          if (!processedLine) {
+            return line;
+          }
+          return {
+            ...line,
+            text: processedLine,
+            baseText: processedLine,
+            status: line.status === "processing" ? line.status : "pending",
+            error: null,
+          };
+        })
+      );
+    },
+    onError: (error: unknown) => {
+      if (error && typeof error === "object" && "response" in error && error.response) {
+        const axiosError = error as { response?: { data?: any } };
+        const detail = axiosError.response?.data?.detail;
+        if (typeof detail === "string") {
+          setAnalyzeError(detail);
+          return;
+        }
+      }
+      setAnalyzeError("Failed to analyze script. Please try again.");
     }
   });
 
@@ -629,14 +659,16 @@ export const VoKitPanel = () => {
             <Button
               variant="light"
               color="violet"
-              onClick={() => analyzeMutation.mutateAsync(scriptLines.map((line) => line.text))}
+              onClick={() => analyzeMutation.mutate(scriptLines.map((line) => line.text))}
               disabled={scriptLines.length === 0}
               loading={analyzeMutation.isLoading}
             >
               Analyze with ChatGPT
             </Button>
-            {analyzeMutation.isError && (
-              <Text c="red.4">Failed to analyze script.</Text>
+            {analyzeError && (
+              <Text c="red.4" maw={300}>
+                {analyzeError}
+              </Text>
             )}
           </Group>
         </Stack>
