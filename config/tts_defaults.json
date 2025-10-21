@@ -6,7 +6,7 @@
   "num_generations_input": 1,
   "num_candidates_slider": 1,
   "max_attempts_slider": 1,
-  "bypass_whisper_checkbox": false,
+  "bypass_whisper_checkbox": true,
   "whisper_model_dropdown": "medium (~5–8 GB OpenAI / ~2.5–4.5 GB faster-whisper)",
   "use_faster_whisper_checkbox": true,
   "enable_parallel_checkbox": true,
