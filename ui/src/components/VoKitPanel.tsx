@@ -34,7 +34,6 @@ import {
   LineStatus,
   ReferenceVoice,
   ReferenceVoiceStyle,
-  SampleScriptDescriptor,
   SampleStationDescriptor,
   StationFormatDescriptor,
   TTSOptions
@@ -268,11 +267,6 @@ export const VoKitPanel = () => {
     queryFn: async () => (await api.get<CloneVoice[]>("/voices/clone")).data
   });
 
-  const sampleScriptsQuery = useQuery<SampleScriptDescriptor[]>({
-    queryKey: ["sample-scripts"],
-    queryFn: async () => (await api.get<SampleScriptDescriptor[]>("/data/sample-scripts")).data
-  });
-
   const sampleStationsQuery = useQuery<SampleStationDescriptor[]>({
     queryKey: ["sample-stations"],
     queryFn: async () => (await api.get<SampleStationDescriptor[]>("/data/sample-stations")).data
@@ -353,14 +347,6 @@ export const VoKitPanel = () => {
       return changed ? next : prev;
     });
   }, [selectedVoice, selectedStyle, referenceVoices, scriptLines]);
-
-  const loadSampleScript = async (scriptId: string) => {
-    const res = await api.get(`/data/sample-scripts/${encodeURIComponent(scriptId)}`);
-    const text = res.data.content as string;
-    const parsed = parsePlainScript(text);
-    setScriptLines(parsed);
-    setScriptName(res.data.id ?? scriptId);
-  };
 
   const loadStationTemplate = async (templateId: string) => {
     const res = await api.get(`/data/station-formats/${templateId}`);
@@ -587,7 +573,6 @@ export const VoKitPanel = () => {
           <Tabs value={activeLoaderTab} onChange={(value) => setActiveLoaderTab(value || "upload")}>
             <Tabs.List>
               <Tabs.Tab value="upload">Import .txt</Tabs.Tab>
-              <Tabs.Tab value="sample">Sample script</Tabs.Tab>
               <Tabs.Tab value="format">Station format</Tabs.Tab>
             </Tabs.List>
 
