@@ -338,12 +338,30 @@ export const VoKitPanel = () => {
           line.referenceAudio,
           line.id
         );
-        if (!line.referenceAudio || line.autoReference) {
-          const shouldUpdate = !line.referenceAudio || suggested !== line.referenceAudio;
-          if (shouldUpdate) changed = true;
-          return { ...line, referenceAudio: suggested, autoReference: true };
+
+        const current = line.referenceAudio ?? null;
+        const desired = suggested ?? null;
+        const allowAutoAssignment = line.autoReference || current === null;
+
+        if (!allowAutoAssignment) {
+          return line;
         }
-        return line;
+
+        if (current === desired) {
+          const autoReference = desired !== null;
+          if (line.autoReference === autoReference) {
+            return line;
+          }
+          changed = true;
+          return { ...line, autoReference };
+        }
+
+        changed = true;
+        return {
+          ...line,
+          referenceAudio: desired,
+          autoReference: desired !== null,
+        };
       });
       return changed ? next : prev;
     });
