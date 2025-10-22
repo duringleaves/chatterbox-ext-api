@@ -660,9 +660,10 @@ export const VoKitPanel = () => {
                       key={key}
                       label={key}
                       value={value}
-                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                        setStationFormValues((prev) => ({ ...prev, [key]: event.currentTarget.value }))
-                      }
+                      onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                        const { value: nextValue } = event.currentTarget;
+                        setStationFormValues((prev) => ({ ...prev, [key]: nextValue }));
+                      }}
                       className={classes.templateInput}
                     />
                   ))}
@@ -816,11 +817,12 @@ export const VoKitPanel = () => {
                             autosize
                             minRows={2}
                             value={line.text}
-                            onChange={(event) =>
+                            onChange={(event) => {
+                              const { value } = event.currentTarget;
                               setScriptLines((prev) =>
-                                prev.map((item) => (item.id === line.id ? { ...item, text: event.currentTarget.value } : item))
-                              )
-                            }
+                                prev.map((item) => (item.id === line.id ? { ...item, text: value } : item))
+                              );
+                            }}
                           />
                         </Table.Td>
                         <Table.Td className={classes.tagCol}>
