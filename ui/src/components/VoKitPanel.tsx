@@ -661,8 +661,9 @@ export const VoKitPanel = () => {
                       label={key}
                       value={value}
                       onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                        const { value: nextValue } = event.currentTarget;
-                        setStationFormValues((prev) => ({ ...prev, [key]: nextValue }));
+                        const target = event.currentTarget;
+                        if (!target) return;
+                        setStationFormValues((prev) => ({ ...prev, [key]: target.value }));
                       }}
                       className={classes.templateInput}
                     />
@@ -818,9 +819,11 @@ export const VoKitPanel = () => {
                             minRows={2}
                             value={line.text}
                             onChange={(event) => {
-                              const { value } = event.currentTarget;
+                              const target = event.currentTarget;
+                              if (!target) return;
+                              const nextValue = target.value;
                               setScriptLines((prev) =>
-                                prev.map((item) => (item.id === line.id ? { ...item, text: value } : item))
+                                prev.map((item) => (item.id === line.id ? { ...item, text: nextValue } : item))
                               );
                             }}
                           />
