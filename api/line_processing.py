@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import math
 import random
+import re
+import unicodedata
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import soundfile as sf
 from fastapi import HTTPException
@@ -65,6 +67,71 @@ def ensure_wav_in_exports(exports: List[str]) -> List[str]:
     if "wav" not in lowered:
         return exports + ["wav"]
     return exports
+
+
+def _slugify_component(value: Optional[str], fallback: str, max_len: int = 60) -> str:
+    base = value or ""
+    normalized = unicodedata.normalize("NFKD", base)
+    ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
+    cleaned = re.sub(r"\s+", " ", ascii_only).strip()
+    if max_len > 0 and len(cleaned) > max_len:
+        cleaned = cleaned[:max_len].rstrip()
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", cleaned)
+    slug = re.sub(r"_+", "_", slug).strip("_")
+    return slug or fallback
+
+
+def _extract_index_from_line_id(line_id: Optional[str]) -> Optional[int]:
+    if not line_id:
+        return None
+    matches = re.findall(r"(\d+)", line_id)
+    if matches:
+        return int(matches[-1])
+    return None
+
+
+def _detect_seed_from_paths(paths: List[Path], fallback: int) -> int:
+    for path in paths:
+        match = re.search(r"_seed(\d+)", path.stem)
+        if match:
+            try:
+                return int(match.group(1))
+            except ValueError:
+                continue
+    return fallback
+
+
+def _unique_paths(paths: List[Path]) -> List[Path]:
+    seen = set()
+    unique: List[Path] = []
+    for path in paths:
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(path)
+    return unique
+
+
+def _rename_generated_files(paths: List[Path], base_name: str) -> Dict[str, Path]:
+    mapping: Dict[str, Path] = {}
+    if not base_name:
+        return {str(path): path for path in paths}
+    seen_ext: Dict[str, int] = {}
+    for original in paths:
+        ext = original.suffix.lower()
+        seen_ext[ext] = seen_ext.get(ext, 0) + 1
+        suffix = "" if seen_ext[ext] == 1 else f"_{seen_ext[ext]:02d}"
+        candidate = original.with_name(f"{base_name}{suffix}{ext}")
+        if candidate.exists() and candidate != original:
+            try:
+                candidate.unlink()
+            except Exception:
+                pass
+        if candidate != original:
+            original.rename(candidate)
+        mapping[str(original)] = candidate
+    return mapping
 
 
 def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationResponse:
@@ -161,7 +228,6 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
     )
 
     raw_outputs = [Path(path) for path in output_paths]
-    raw_file_results = [to_file_result(path) for path in raw_outputs]
 
     wav_candidates = [path for path in raw_outputs if path.suffix.lower() == ".wav"]
     if not wav_candidates:
@@ -202,6 +268,26 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
         segment.export(mp3_path, format="mp3", bitrate="320k")
         final_files.extend([base_wav, mp3_path])
 
+    requested_queue_position = payload.queue_position or _extract_index_from_line_id(payload.line_id) or 0
+    seed_used = _detect_seed_from_paths(raw_outputs, int(options.seed or 0))
+
+    text_component = _slugify_component((payload.text or "")[:80], "line", 60)
+    reference_source = Path(payload.reference_audio).stem if payload.reference_audio else "reference"
+    reference_component = _slugify_component(reference_source, "reference", 40)
+    components = []
+    if requested_queue_position:
+        components.append(f"{requested_queue_position:03d}")
+    components.extend([text_component, reference_component, f"seed{seed_used}"])
+    base_name = "_".join(filter(None, components))
+    if len(base_name) > 180:
+        base_name = base_name[:180]
+
+    combined_paths = _unique_paths(raw_outputs + final_files)
+    rename_map = _rename_generated_files(combined_paths, base_name)
+    raw_outputs = [rename_map.get(str(path), path) for path in raw_outputs]
+    final_files = [rename_map.get(str(path), path) for path in final_files]
+
+    raw_file_results = [to_file_result(path) for path in raw_outputs if path.exists()]
     final_results = [to_file_result(path) for path in final_files if path.exists()]
 
     metadata = {
@@ -221,6 +307,9 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
             "tts_settings_expected": expected_str,
             "tts_settings_source": source_str,
             "tts_settings_match": "false" if overrides_applied else "true",
+            "tts_seed_used": str(seed_used),
+            "queue_position": str(requested_queue_position) if requested_queue_position else "",
+            "output_basename": base_name,
         }
     )
 

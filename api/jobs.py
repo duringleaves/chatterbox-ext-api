@@ -18,6 +18,7 @@ from .schemas import (
     BatchCreateRequest,
     BatchJobStatus,
     BatchLineStatus,
+    FileResult,
     JobState,
     LineGenerationRequest,
     LineGenerationResponse,
@@ -50,6 +51,7 @@ class LineState:
     status: LineStatus = LineStatus.pending
     result: Optional[LineGenerationResponse] = None
     error: Optional[str] = None
+    order: int = 0
 
 
 @dataclass
@@ -76,7 +78,10 @@ class JobManager:
         job_id = uuid.uuid4().hex
         job_dir = JOBS_ROOT / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
-        lines = {line.line_id: LineState(payload=line) for line in request.lines}
+        lines: Dict[str, LineState] = {}
+        for index, line in enumerate(request.lines, start=1):
+            payload = line.model_copy(update={"job_id": job_id, "queue_position": line.queue_position or index})
+            lines[line.line_id] = LineState(payload=payload, order=payload.queue_position or index)
         job = BatchJob(id=job_id, lines=lines, name=request.job_name, dir=job_dir)
         async with self._lock:
             self.jobs[job_id] = job
@@ -111,27 +116,41 @@ class JobManager:
             job.state = JobState.failed
             job.error = f"Failed to build ZIP: {exc}"
 
-    def _persist_line_outputs(self, job: BatchJob, line_id: str, response: LineGenerationResponse) -> None:
-        final_dir = job.dir / "final"
-        raw_dir = job.dir / "raw"
+    def _persist_line_outputs(
+        self,
+        job: BatchJob,
+        line_id: str,
+        response: LineGenerationResponse,
+        *,
+        replace_existing: bool = False,
+    ) -> None:
+        line_state = job.lines.get(line_id)
+        order = line_state.order if line_state else None
+        folder_label = f"{order:03d}_{line_id}" if order else line_id
+
+        final_dir = job.dir / "final" / folder_label
+        raw_dir = job.dir / "raw" / folder_label
+        if replace_existing and final_dir.exists():
+            shutil.rmtree(final_dir)
+        if replace_existing and raw_dir.exists():
+            shutil.rmtree(raw_dir)
         final_dir.mkdir(parents=True, exist_ok=True)
         raw_dir.mkdir(parents=True, exist_ok=True)
 
-        def copy_wav(src_path: Path, target_dir: Path) -> None:
+        def copy_audio(src_path: Path, target_dir: Path) -> None:
             if src_path.suffix.lower() != ".wav" or not src_path.exists():
                 return
-            base_name = f"{line_id}_{src_path.name}"
-            dest_path = target_dir / base_name
-            index = 1
+            dest_path = target_dir / src_path.name
+            counter = 2
             while dest_path.exists():
-                dest_path = target_dir / f"{line_id}_{index}_{src_path.name}"
-                index += 1
+                dest_path = target_dir / f"{src_path.stem}_{counter}{src_path.suffix}"
+                counter += 1
             shutil.copy2(src_path, dest_path)
 
         for dest_dir, outputs in ((final_dir, response.final_outputs), (raw_dir, response.raw_outputs)):
             for item in outputs:
                 src = _resolve_path(item)
-                copy_wav(src, dest_dir)
+                copy_audio(src, dest_dir)
 
     def _build_zip(self, job: BatchJob) -> None:
         concatenated_final_path = job.dir / "concatenated_final.wav"
@@ -166,8 +185,8 @@ class JobManager:
                 zf.write(concatenated_raw_path, arcname="concatenated/raw.wav")
             for folder in [job.dir / "final", job.dir / "raw"]:
                 if folder.exists():
-                    for path in folder.iterdir():
-                        if path.is_file() and path.suffix.lower() == ".wav":
+                    for path in sorted(folder.rglob("*.wav")):
+                        if path.is_file():
                             arcname = path.relative_to(job.dir)
                             zf.write(path, arcname=str(arcname))
         job.zip_path = zip_path
@@ -217,6 +236,45 @@ class JobManager:
         if job.task:
             await job.task
         job.state = JobState.cancelled
+
+    async def apply_line_update(
+        self,
+        payload: LineGenerationRequest,
+        response: LineGenerationResponse,
+    ) -> Optional[FileResult]:
+        job_id = payload.job_id
+        if not job_id:
+            return None
+
+        async with self._lock:
+            job = self.jobs.get(job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="Job not found")
+
+            line_state = job.lines.get(payload.line_id)
+            if not line_state:
+                order = payload.queue_position or len(job.lines) + 1
+                payload = payload.model_copy(update={"job_id": job_id, "queue_position": order})
+                line_state = LineState(payload=payload, order=order)
+                job.lines[payload.line_id] = line_state
+            else:
+                order = line_state.order or payload.queue_position
+                queue_position = payload.queue_position or order
+                payload = payload.model_copy(update={"job_id": job_id, "queue_position": queue_position})
+                line_state.payload = payload
+                if queue_position:
+                    line_state.order = queue_position
+
+            line_state.result = response
+            line_state.status = LineStatus.completed
+            line_state.error = None
+
+            self._persist_line_outputs(job, payload.line_id, response, replace_existing=True)
+            self._build_zip(job)
+
+            if job.zip_path and job.zip_path.exists():
+                return to_file_result(job.zip_path)
+            return None
 
     async def get_job_zip_path(self, job_id: str) -> Path:
         async with self._lock:

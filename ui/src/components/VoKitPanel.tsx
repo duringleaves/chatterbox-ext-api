@@ -291,6 +291,7 @@ export const VoKitPanel = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedSampleStationId, setSelectedSampleStationId] = useState<string | null>(null);
   const [batchJobId, setBatchJobId] = useState<string | null>(null);
+  const [lastJobId, setLastJobId] = useState<string | null>(null);
   const [latestZipFile, setLatestZipFile] = useState<FileResult | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
@@ -446,6 +447,7 @@ export const VoKitPanel = () => {
       const options = applyStyleOverrides({ ...baseOptions }, style, line.tag);
       options.sound_words_field = line.soundWordsField ?? baseOptions.sound_words_field ?? "";
       options.export_formats = Array.from(new Set([...options.export_formats, "wav"]));
+      const queuePosition = scriptLines.findIndex((item) => item.id === line.id) + 1;
       const payload = {
         line_id: line.id,
         text: line.text,
@@ -458,12 +460,14 @@ export const VoKitPanel = () => {
         clone_voice: cloneVoice ?? undefined,
         clone_audio: cloneSample ?? undefined,
         clone_pitch: clonePitch,
+        job_id: lastJobId ?? undefined,
+        queue_position: queuePosition || undefined,
         options
       };
       const res = await api.post<LineGenerationResponse>("/lines/generate", payload);
       return res.data;
     },
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       setScriptLines((prev) =>
         prev.map((line) =>
           line.id === response.line_id
@@ -477,6 +481,16 @@ export const VoKitPanel = () => {
             : line
         )
       );
+      if (response.zip_file !== undefined) {
+        setLatestZipFile(response.zip_file ?? null);
+      } else if (lastJobId) {
+        try {
+          const status = await api.get<BatchJobStatus>(`/jobs/${lastJobId}`);
+          setLatestZipFile(status.data?.zip_file ?? null);
+        } catch {
+          /* ignore */
+        }
+      }
     },
     onError: (error, line) => {
       const message = error instanceof Error ? error.message : "Generation failed";
@@ -497,6 +511,7 @@ export const VoKitPanel = () => {
         if (!line.referenceAudio) {
           throw new Error(`Line ${line.id} is missing reference audio`);
         }
+        const queuePosition = scriptLines.findIndex((item) => item.id === line.id) + 1;
         return {
           line_id: line.id,
           text: line.text,
@@ -509,6 +524,7 @@ export const VoKitPanel = () => {
           clone_voice: cloneVoice ?? undefined,
           clone_audio: cloneSample ?? undefined,
           clone_pitch: clonePitch,
+          queue_position: queuePosition || undefined,
           options
         };
       });
@@ -519,6 +535,7 @@ export const VoKitPanel = () => {
     onSuccess: (jobId) => {
       setLatestZipFile(null);
       setBatchJobId(jobId);
+      setLastJobId(jobId);
       setScriptLines((prev) => prev.map((line) => (line.status === "completed" ? line : { ...line, status: "processing", error: null })));
     }
   });
@@ -533,6 +550,7 @@ export const VoKitPanel = () => {
   useEffect(() => {
     const status = batchStatusQuery.data;
     if (!status) return;
+    setLastJobId(status.job_id);
     setScriptLines((prev) =>
       prev.map((line) => {
         const state = status.lines.find((l) => l.line_id === line.id);
@@ -600,6 +618,8 @@ export const VoKitPanel = () => {
     const parsed = parsePlainScript(text);
     setScriptLines(parsed);
     setScriptName(file.name);
+    setLastJobId(null);
+    setLatestZipFile(null);
   };
 
   const handleStationTemplateGenerate = async () => {
@@ -609,6 +629,8 @@ export const VoKitPanel = () => {
     const lines = substituteTemplate(template, stationFormValues);
     setScriptLines(lines);
     setScriptName(`${selectedTemplateId} template`);
+    setLastJobId(null);
+    setLatestZipFile(null);
   };
 
   const renderLoader = defaultsQuery.isLoading || referenceVoicesQuery.isLoading;

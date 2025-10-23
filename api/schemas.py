@@ -227,6 +227,8 @@ class LineGenerationRequest(BaseModel):
     clone_voice: Optional[str] = None
     clone_audio: Optional[str] = None
     clone_pitch: float = Field(default=0.0)
+    job_id: Optional[str] = None
+    queue_position: Optional[int] = None
 
 
 class LineGenerationResponse(BaseModel):
@@ -234,6 +236,7 @@ class LineGenerationResponse(BaseModel):
     raw_outputs: List[FileResult]
     final_outputs: List[FileResult]
     metadata: Dict[str, str] = Field(default_factory=dict)
+    zip_file: Optional[FileResult] = None
 
 
 class BatchCreateRequest(BaseModel):

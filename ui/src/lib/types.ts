@@ -11,6 +11,8 @@ export interface LineGenerationRequest {
   clone_voice?: string | null;
   clone_audio?: string | null;
   clone_pitch?: number;
+  job_id?: string | null;
+  queue_position?: number | null;
 }
 
 export interface TTSOptions {
@@ -102,6 +104,7 @@ export interface LineGenerationResponse {
   raw_outputs: FileResult[];
   final_outputs: FileResult[];
   metadata: Record<string, string>;
+  zip_file?: FileResult | null;
 }
 
 export interface BatchLineStatus {
