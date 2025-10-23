@@ -285,6 +285,7 @@ export const VoKitPanel = () => {
   const [cloneVoice, setCloneVoice] = useState<string | null>(null);
   const [cloneSample, setCloneSample] = useState<string | null>(null);
   const [clonePitch, setClonePitch] = useState<number>(0);
+  const [takesPerLine, setTakesPerLine] = useState<number>(1);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [activeLoaderTab, setActiveLoaderTab] = useState<string>("upload");
   const [stationFormValues, setStationFormValues] = useState<Record<string, string>>({});
@@ -449,9 +450,10 @@ export const VoKitPanel = () => {
       options.sound_words_field = line.soundWordsField ?? baseOptions.sound_words_field ?? "";
       options.export_formats = Array.from(new Set([...options.export_formats, "wav"]));
       const queuePosition = scriptLines.findIndex((item) => item.id === line.id) + 1;
+      const repeatedText = takesPerLine > 1 ? Array.from({ length: takesPerLine }, () => line.text).join("\n") : line.text;
       const payload = {
         line_id: line.id,
-        text: line.text,
+        text: repeatedText,
         section: line.section,
         reference_voice: selectedVoice,
         reference_style: selectedStyle,
@@ -514,9 +516,10 @@ export const VoKitPanel = () => {
           throw new Error(`Line ${line.id} is missing reference audio`);
         }
         const queuePosition = scriptLines.findIndex((item) => item.id === line.id) + 1;
+        const repeatedText = takesPerLine > 1 ? Array.from({ length: takesPerLine }, () => line.text).join("\n") : line.text;
         return {
           line_id: line.id,
-          text: line.text,
+          text: repeatedText,
           section: line.section,
           reference_voice: selectedVoice,
           reference_style: selectedStyle,
@@ -767,11 +770,11 @@ export const VoKitPanel = () => {
                 />
               </Group>
 
-              <Divider label="Clone (optional)" labelPosition="left" />
-              <Group grow>
-                <Select
-                  label="Clone voice"
-                  placeholder="None"
+          <Divider label="Clone (optional)" labelPosition="left" />
+          <Group grow>
+            <Select
+              label="Clone voice"
+              placeholder="None"
                   data={[{ value: "", label: "None" }, ...cloneVoiceOptions]}
                   value={cloneVoice ?? ""}
                   onChange={(value) => setCloneVoice(value || null)}
@@ -784,11 +787,26 @@ export const VoKitPanel = () => {
                   onChange={setCloneSample}
                   disabled={!cloneVoice}
                 />
-              </Group>
-              <Stack gap={4}>
-                <Text fw={500}>Clone pitch ({clonePitch} semitones)</Text>
-                <Slider min={-12} max={12} step={1} value={clonePitch} onChange={setClonePitch} marks={[{ value: 0, label: "0" }]} />
-              </Stack>
+          </Group>
+          <Stack gap={4}>
+            <Text fw={500}>Clone pitch ({clonePitch} semitones)</Text>
+            <Slider min={-12} max={12} step={1} value={clonePitch} onChange={setClonePitch} marks={[{ value: 0, label: "0" }]} />
+          </Stack>
+          <Stack gap={4}>
+            <Text fw={500}>Takes per line ({takesPerLine})</Text>
+            <Slider
+              min={1}
+              max={3}
+              step={1}
+              value={takesPerLine}
+              onChange={setTakesPerLine}
+              marks={[
+                { value: 1, label: "1" },
+                { value: 2, label: "2" },
+                { value: 3, label: "3" }
+              ]}
+            />
+          </Stack>
             </>
           )}
         </Stack>
