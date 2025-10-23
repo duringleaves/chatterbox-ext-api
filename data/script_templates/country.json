@@ -38,19 +38,19 @@
   "SLOGAN": [
     {
       "text": "%slogan%",
-      "reference": "holiday"
+      "reference": "slogan"
     },
     {
       "text": "[fast]%slogan%",
-      "reference": "holiday"
+      "reference": "slogan"
     },
     {
       "text": "[slow]%slogan%",
-      "reference": "holiday"
+      "reference": "slogan"
     },
     {
       "text": "[intense]%slogan%",
-      "reference": "holiday"
+      "reference": "slogan"
     }
   ],
   "MORNING SHOW": [
@@ -133,7 +133,7 @@
   ],
   "WEBSITE": [
     {
-      "text": "%website%",
+      "text": "%website%.  %website%.  %website%.",
       "reference": "website"
     },
     {
