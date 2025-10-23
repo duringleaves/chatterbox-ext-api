@@ -265,6 +265,11 @@ async def cancel_batch_job(job_id: str) -> dict:
     return {"job_id": job_id, "status": "cancelled"}
 
 
+@protected.post("/jobs/{job_id}/zip", response_model=FileResult)
+async def build_job_zip(job_id: str) -> FileResult:
+    return await job_manager.build_zip(job_id)
+
+
 @protected.get("/jobs/{job_id}/zip")
 async def download_job_zip(job_id: str) -> FileResponse:
     path = await job_manager.get_job_zip_path(job_id)

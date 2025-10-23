@@ -22,7 +22,7 @@ import {
   Title
 } from "@mantine/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { IconAlertCircle, IconChecks, IconDownload, IconPlayerPlay } from "@tabler/icons-react";
+import { IconChecks, IconDownload, IconPlayerPlay } from "@tabler/icons-react";
 import { api } from "@/lib/api";
 import {
   AnalyzeResponse,
@@ -294,6 +294,7 @@ export const VoKitPanel = () => {
   const [lastJobId, setLastJobId] = useState<string | null>(null);
   const [latestZipFile, setLatestZipFile] = useState<FileResult | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [zipError, setZipError] = useState<string | null>(null);
 
   const triggerPlayback = (url?: string) => {
     if (!url) return;
@@ -468,6 +469,7 @@ export const VoKitPanel = () => {
       return res.data;
     },
     onSuccess: async (response) => {
+      setLatestZipFile(null);
       setScriptLines((prev) =>
         prev.map((line) =>
           line.id === response.line_id
@@ -536,7 +538,31 @@ export const VoKitPanel = () => {
       setLatestZipFile(null);
       setBatchJobId(jobId);
       setLastJobId(jobId);
+      setZipError(null);
       setScriptLines((prev) => prev.map((line) => (line.status === "completed" ? line : { ...line, status: "processing", error: null })));
+    }
+  });
+
+  const buildZipMutation = useMutation({
+    mutationFn: async () => {
+      if (!lastJobId) {
+        throw new Error("Generate a batch before building a bundle.");
+      }
+      const res = await api.post<FileResult>(`/jobs/${lastJobId}/zip`);
+      return res.data;
+    },
+    onMutate: () => {
+      setZipError(null);
+    },
+    onSuccess: (file) => {
+      setLatestZipFile(file ?? null);
+      if (file?.url) {
+        window.location.href = file.url;
+      }
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Failed to prepare bundle.";
+      setZipError(message);
     }
   });
 
@@ -567,11 +593,8 @@ export const VoKitPanel = () => {
     if (["completed", "cancelled", "failed"].includes(status.state)) {
       setBatchJobId(null);
     }
-    if (status.zip_file) {
-      setLatestZipFile(status.zip_file);
-    }
-    if (status.state === "failed") {
-      setLatestZipFile((prev) => (status.zip_file ? status.zip_file : prev));
+    if (status.zip_file !== undefined) {
+      setLatestZipFile(status.zip_file ?? null);
     }
   }, [batchStatusQuery.data]);
 
@@ -608,6 +631,7 @@ export const VoKitPanel = () => {
   }, [scriptLines]);
 
   const bundleZip = batchStatusQuery.data?.zip_file ?? latestZipFile;
+  const hasCompletedLines = useMemo(() => scriptLines.some((line) => line.status === "completed"), [scriptLines]);
 
   const buildReferenceUrl = (file: string | null) =>
     getReferenceUrl(selectedVoice, selectedStyle, file, apiKey);
@@ -620,6 +644,7 @@ export const VoKitPanel = () => {
     setScriptName(file.name);
     setLastJobId(null);
     setLatestZipFile(null);
+    setZipError(null);
   };
 
   const handleStationTemplateGenerate = async () => {
@@ -631,6 +656,7 @@ export const VoKitPanel = () => {
     setScriptName(`${selectedTemplateId} template`);
     setLastJobId(null);
     setLatestZipFile(null);
+    setZipError(null);
   };
 
   const renderLoader = defaultsQuery.isLoading || referenceVoicesQuery.isLoading;
@@ -797,19 +823,6 @@ export const VoKitPanel = () => {
           </Group>
         </Group>
         <Space h="md" />
-
-        {bundleZip && (
-          <Alert color="teal" radius="sm" title="Bundle ready" icon={<IconChecks size={16} />}>
-            <Group gap="sm" align="center">
-              <Text>Download the stitched bundle:</Text>
-              <Button component="a" href={bundleZip.url ?? undefined} variant="light" size="xs" disabled={!bundleZip.url}>
-                Download ZIP
-              </Button>
-            </Group>
-          </Alert>
-        )}
-
-        <Space h="sm" />
         <div className={classes.tableWrapper}>
           <Table highlightOnHover verticalSpacing="sm">
             <Table.Thead>
@@ -935,6 +948,51 @@ export const VoKitPanel = () => {
             </Table.Tbody>
           </Table>
         </div>
+      </Card>
+
+      <Card withBorder padding="lg" radius="md" shadow="sm">
+        <Stack gap="xs">
+          <Group gap="sm">
+            <Button
+              color="teal"
+              onClick={() => buildZipMutation.mutate()}
+              loading={buildZipMutation.isLoading}
+              disabled={!lastJobId || !hasCompletedLines || buildZipMutation.isLoading}
+            >
+              Prepare & Download ZIP
+            </Button>
+            {bundleZip?.url && (
+              <Button
+                component="a"
+                href={bundleZip.url ?? undefined}
+                variant="light"
+                color="teal"
+                leftSection={<IconDownload size={16} />}
+                disabled={buildZipMutation.isLoading}
+              >
+                Download Latest
+              </Button>
+            )}
+          </Group>
+          {buildZipMutation.isLoading && (
+            <Text size="sm" c="dimmed">
+              Preparing bundle with the latest audio…
+            </Text>
+          )}
+          {zipError && (
+            <Text size="sm" c="red.5">
+              {zipError}
+            </Text>
+          )}
+          {bundleZip && !buildZipMutation.isLoading && (
+            <Group gap="sm" align="center">
+              <IconChecks size={16} color="var(--mantine-color-teal-6)" />
+              <Text size="sm" c="teal.6">
+                Latest bundle ready: {bundleZip.path}
+              </Text>
+            </Group>
+          )}
+        </Stack>
       </Card>
 
       {batchStatusQuery.isFetching && batchJobId && (

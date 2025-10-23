@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
+import re
 import shutil
+import unicodedata
 import uuid
 import zipfile
 from dataclasses import dataclass, field
@@ -43,6 +46,15 @@ def _first_wav(file_results) -> Optional[Path]:
         if path.suffix.lower() == ".wav" and path.exists():
             return path
     return None
+
+
+def _slugify(value: Optional[str], fallback: str) -> str:
+    base = value or fallback
+    normalized = unicodedata.normalize("NFKD", base)
+    ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
+    cleaned = re.sub(r"\s+", " ", ascii_only).strip()
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", cleaned).strip("_")
+    return slug or fallback
 
 
 @dataclass
@@ -110,11 +122,6 @@ class JobManager:
             job.state = JobState.failed
             return
         job.state = JobState.completed
-        try:
-            self._build_zip(job)
-        except Exception as exc:  # pragma: no cover - zip failure
-            job.state = JobState.failed
-            job.error = f"Failed to build ZIP: {exc}"
 
     def _persist_line_outputs(
         self,
@@ -152,43 +159,73 @@ class JobManager:
                 src = _resolve_path(item)
                 copy_audio(src, dest_dir)
 
-    def _build_zip(self, job: BatchJob) -> None:
+    def _build_zip(self, job: BatchJob, zip_path: Path) -> None:
+        silence_gap = AudioSegment.silent(duration=500)
         concatenated_final_path = job.dir / "concatenated_final.wav"
         concatenated_raw_path = job.dir / "concatenated_raw.wav"
+
+        if zip_path.exists():
+            zip_path.unlink()
+
+        ordered_states = sorted(
+            job.lines.items(),
+            key=lambda item: ((item[1].order or 0), item[0]),
+        )
+
+        include_final = any(
+            state.result and state.result.metadata.get("clone_voice")
+            for _, state in ordered_states
+        )
+
         final_segments = []
         raw_segments = []
-        for line_state in job.lines.values():
+
+        for _, line_state in ordered_states:
             if line_state.status != LineStatus.completed or not line_state.result:
                 continue
             final_source = _first_wav(line_state.result.final_outputs) or _first_wav(line_state.result.raw_outputs)
             raw_source = _first_wav(line_state.result.raw_outputs)
-            if final_source and final_source.exists():
+            if include_final and final_source and final_source.exists():
                 final_segments.append(AudioSegment.from_wav(final_source))
             if raw_source and raw_source.exists():
                 raw_segments.append(AudioSegment.from_wav(raw_source))
-        if final_segments:
+
+        if include_final and final_segments:
             combined_final = final_segments[0]
             for segment in final_segments[1:]:
-                combined_final += segment
+                combined_final += silence_gap + segment
             combined_final.export(concatenated_final_path, format="wav")
+        else:
+            if concatenated_final_path.exists():
+                concatenated_final_path.unlink()
+
         if raw_segments:
             combined_raw = raw_segments[0]
             for segment in raw_segments[1:]:
-                combined_raw += segment
+                combined_raw += silence_gap + segment
             combined_raw.export(concatenated_raw_path, format="wav")
+        elif concatenated_raw_path.exists():
+            concatenated_raw_path.unlink()
 
-        zip_path = job.dir / f"{job.id}.zip"
         with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            if concatenated_final_path.exists():
+            if include_final and concatenated_final_path.exists():
                 zf.write(concatenated_final_path, arcname="concatenated/final.wav")
             if concatenated_raw_path.exists():
                 zf.write(concatenated_raw_path, arcname="concatenated/raw.wav")
-            for folder in [job.dir / "final", job.dir / "raw"]:
-                if folder.exists():
-                    for path in sorted(folder.rglob("*.wav")):
+            raw_folder = job.dir / "raw"
+            if raw_folder.exists():
+                for path in sorted(raw_folder.rglob("*.wav")):
+                    if path.is_file():
+                        arcname = path.relative_to(job.dir)
+                        zf.write(path, arcname=str(arcname))
+            if include_final:
+                final_folder = job.dir / "final"
+                if final_folder.exists():
+                    for path in sorted(final_folder.rglob("*.wav")):
                         if path.is_file():
                             arcname = path.relative_to(job.dir)
                             zf.write(path, arcname=str(arcname))
+
         job.zip_path = zip_path
 
     async def get_job(self, job_id: str) -> BatchJobStatus:
@@ -270,10 +307,12 @@ class JobManager:
             line_state.error = None
 
             self._persist_line_outputs(job, payload.line_id, response, replace_existing=True)
-            self._build_zip(job)
-
             if job.zip_path and job.zip_path.exists():
-                return to_file_result(job.zip_path)
+                try:
+                    job.zip_path.unlink()
+                except FileNotFoundError:
+                    pass
+            job.zip_path = None
             return None
 
     async def get_job_zip_path(self, job_id: str) -> Path:
@@ -282,6 +321,40 @@ class JobManager:
         if not job or not job.zip_path or not job.zip_path.exists():
             raise HTTPException(status_code=404, detail="Zip file not available")
         return job.zip_path
+
+    async def build_zip(self, job_id: str) -> FileResult:
+        async with self._lock:
+            job = self.jobs.get(job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="Job not found")
+
+            completed_lines = [state for state in job.lines.values() if state.status == LineStatus.completed and state.result]
+            if not completed_lines:
+                raise HTTPException(status_code=400, detail="No completed lines to bundle")
+
+            station_slug = _slugify(job.name, "bundle")
+            reference_voice = None
+            for state in completed_lines:
+                if state.payload.reference_voice:
+                    reference_voice = state.payload.reference_voice
+                    break
+            voice_slug = _slugify(reference_voice, "voice")
+            timestamp = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S-%f")[:-3]
+            zip_filename = f"{station_slug}_{voice_slug}_{timestamp}.zip"
+            zip_path = job.dir / zip_filename
+
+            if job.zip_path and job.zip_path.exists() and job.zip_path != zip_path:
+                try:
+                    job.zip_path.unlink()
+                except FileNotFoundError:
+                    pass
+
+            try:
+                self._build_zip(job, zip_path)
+            except Exception as exc:  # pragma: no cover - defensive
+                raise HTTPException(status_code=500, detail=f"Failed to build ZIP: {exc}") from exc
+
+            return to_file_result(zip_path)
 
 
 job_manager = JobManager()
