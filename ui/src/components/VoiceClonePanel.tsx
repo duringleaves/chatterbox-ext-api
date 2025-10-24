@@ -81,18 +81,26 @@ export const VoiceClonePanel = () => {
     onSuccess: (data) => {
       const timestamp = Date.now();
       const wavOutputs = data.filter((file) => file.path.toLowerCase().endsWith(".wav"));
-      setOutputs((prev) => [
-        ...prev,
-        ...wavOutputs.map((file) => ({
-          ...file,
+      const primary = wavOutputs[0];
+
+      if (!primary) {
+        setError("No WAV output was returned from the server.");
+        setOutputs([]);
+        return;
+      }
+
+      setOutputs([
+        {
+          ...primary,
           renderedAt: timestamp
-        }))
+        }
       ]);
       setError(null);
     },
     onError: (err: unknown) => {
       const message = err instanceof Error ? err.message : "Failed to render voice clone";
       setError(message);
+      setOutputs([]);
     }
   });
 
@@ -186,13 +194,13 @@ export const VoiceClonePanel = () => {
             <Button
               size="md"
               color="violet"
-              onClick={() => mutation.mutateAsync()}
-              loading={mutation.isLoading}
-              disabled={!inputFile || !selectedVoice || mutation.isLoading}
+              onClick={() => mutation.mutate()}
+              loading={mutation.isPending}
+              disabled={!inputFile || !selectedVoice || mutation.isPending}
             >
               Render Clone
             </Button>
-            {mutation.isLoading && <Loader size="sm" />}
+            {mutation.isPending && <Loader size="sm" />}
           </Group>
           {error && (
             <Alert color="red" icon={<IconAlertCircle size={16} />}>
