@@ -1,23 +1,24 @@
 import { useState } from "react";
 import {
+  Alert,
   Button,
   Card,
   FileInput,
   Group,
+  Loader,
+  SegmentedControl,
   Select,
-  Slider,
   Space,
   Stack,
-  Text,
-  Title,
   Table,
-  Loader,
-  Alert
+  Text,
+  Title
 } from "@mantine/core";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { CloneVoice, FileResult } from "@/lib/types";
 import { IconAlertCircle } from "@tabler/icons-react";
+import { AudioRecorder } from "./AudioRecorder";
 
 const toBase64 = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -35,6 +36,8 @@ const toBase64 = (file: File) =>
     reader.readAsDataURL(file);
   });
 
+type VoiceCloneOutput = FileResult & { renderedAt: number };
+
 export const VoiceClonePanel = () => {
   const { data: cloneVoices, isLoading } = useQuery<CloneVoice[]>({
     queryKey: ["clone-voices"],
@@ -47,13 +50,14 @@ export const VoiceClonePanel = () => {
   const [inputFile, setInputFile] = useState<File | null>(null);
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
   const [selectedSample, setSelectedSample] = useState<string | null>(null);
-  const [pitch, setPitch] = useState(0);
-  const [outputs, setOutputs] = useState<FileResult[]>([]);
+  const [outputs, setOutputs] = useState<VoiceCloneOutput[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<"upload" | "record">("upload");
+  const pitch = 0;
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!inputFile) throw new Error("Please upload an input audio file");
+      if (!inputFile) throw new Error("Please provide an input audio file");
       if (!selectedVoice) throw new Error("Select a clone voice");
       const sample = selectedSample || cloneVoices?.find((v) => v.name === selectedVoice)?.files?.[0];
       if (!sample) throw new Error("No sample available for the selected voice");
@@ -69,14 +73,22 @@ export const VoiceClonePanel = () => {
         },
         pitch_shift: pitch,
         disable_watermark: true,
-        export_formats: ["wav", "mp3"],
+        export_formats: ["wav"],
         return_audio_base64: false
       };
       const res = await api.post<{ outputs: FileResult[] }>("/voice/convert", payload);
       return res.data.outputs;
     },
     onSuccess: (data) => {
-      setOutputs(data);
+      const timestamp = Date.now();
+      const wavOutputs = data.filter((file) => file.path.toLowerCase().endsWith(".wav"));
+      setOutputs((prev) => [
+        ...prev,
+        ...wavOutputs.map((file) => ({
+          ...file,
+          renderedAt: timestamp
+        }))
+      ]);
       setError(null);
     },
     onError: (err: unknown) => {
@@ -96,18 +108,43 @@ export const VoiceClonePanel = () => {
         <Stack>
           <Title order={4}>Quick Voice Clone</Title>
           <Text c="dimmed">
-            Upload an audio clip, pick a destination voice, and the API will render a cloned take. Pitch
-            adjustments are optional but helpful for matching energy.
+            Upload or record an audio clip, pick a destination voice, and the API will render a cloned take.
           </Text>
 
-          <FileInput
-            label="Upload audio to clone"
-            placeholder="Select a WAV/MP3/FLAC file"
-            value={inputFile}
-            onChange={setInputFile}
-            accept="audio/*"
-            withAsterisk
-          />
+          <Stack gap="xs">
+            <SegmentedControl
+              value={inputMode}
+              onChange={(value) => {
+                const mode = value as "upload" | "record";
+                if (mode !== inputMode) {
+                  setInputMode(mode);
+                  setInputFile(null);
+                }
+              }}
+              data={[
+                { label: "Upload", value: "upload" },
+                { label: "Record", value: "record" }
+              ]}
+            />
+            {inputMode === "upload" ? (
+              <FileInput
+                label="Upload audio to clone"
+                placeholder="Select a WAV/MP3/FLAC file"
+                value={inputFile}
+                onChange={setInputFile}
+                accept="audio/*"
+                withAsterisk
+              />
+            ) : (
+              <Stack gap="xs">
+                <Text size="sm" c="dimmed">
+                  Record a short clip with your microphone. The recording is saved locally and used as the
+                  input file for cloning.
+                </Text>
+                <AudioRecorder key={inputMode} onChange={setInputFile} />
+              </Stack>
+            )}
+          </Stack>
 
           <Group grow>
             <Select
@@ -142,7 +179,7 @@ export const VoiceClonePanel = () => {
               color="violet"
               onClick={() => mutation.mutateAsync()}
               loading={mutation.isLoading}
-              disabled={!inputFile || !selectedVoice}
+              disabled={!inputFile || !selectedVoice || mutation.isLoading}
             >
               Render Clone
             </Button>
@@ -164,14 +201,16 @@ export const VoiceClonePanel = () => {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>File</Table.Th>
+                <Table.Th>Rendered</Table.Th>
                 <Table.Th>Preview</Table.Th>
                 <Table.Th>Download</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {outputs.map((file) => (
-                <Table.Tr key={file.path}>
+                <Table.Tr key={`${file.path}-${file.renderedAt}`}>
                   <Table.Td>{file.path}</Table.Td>
+                  <Table.Td>{new Date(file.renderedAt).toLocaleString()}</Table.Td>
                   <Table.Td>
                     {file.url ? <audio controls src={file.url} style={{ width: 220 }} /> : <Text c="dimmed">No URL</Text>}
                   </Table.Td>
