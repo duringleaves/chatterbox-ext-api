@@ -6,7 +6,6 @@ import {
   FileInput,
   Group,
   Loader,
-  SegmentedControl,
   Select,
   Space,
   Stack,
@@ -17,7 +16,7 @@ import {
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { CloneVoice, FileResult } from "@/lib/types";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { IconAlertCircle, IconMicrophone, IconUpload } from "@tabler/icons-react";
 import { AudioRecorder } from "./AudioRecorder";
 
 const toBase64 = (file: File) =>
@@ -111,21 +110,36 @@ export const VoiceClonePanel = () => {
             Upload or record an audio clip, pick a destination voice, and the API will render a cloned take.
           </Text>
 
-          <Stack gap="xs">
-            <SegmentedControl
-              value={inputMode}
-              onChange={(value) => {
-                const mode = value as "upload" | "record";
-                if (mode !== inputMode) {
-                  setInputMode(mode);
-                  setInputFile(null);
-                }
-              }}
-              data={[
-                { label: "Upload", value: "upload" },
-                { label: "Record", value: "record" }
-              ]}
-            />
+          <Stack gap="sm">
+            <Group>
+              <Button
+                leftSection={<IconUpload size={16} />}
+                variant={inputMode === "upload" ? "filled" : "light"}
+                color="violet"
+                onClick={() => {
+                  if (inputMode !== "upload") {
+                    setInputMode("upload");
+                    setInputFile(null);
+                  }
+                }}
+              >
+                Upload file
+              </Button>
+              <Button
+                leftSection={<IconMicrophone size={16} />}
+                variant={inputMode === "record" ? "filled" : "light"}
+                color="violet"
+                onClick={() => {
+                  if (inputMode !== "record") {
+                    setInputMode("record");
+                    setInputFile(null);
+                  }
+                }}
+              >
+                Record audio
+              </Button>
+            </Group>
+
             {inputMode === "upload" ? (
               <FileInput
                 label="Upload audio to clone"
@@ -138,8 +152,8 @@ export const VoiceClonePanel = () => {
             ) : (
               <Stack gap="xs">
                 <Text size="sm" c="dimmed">
-                  Record a short clip with your microphone. The recording is saved locally and used as the
-                  input file for cloning.
+                  Press record to capture a short clip with your microphone. The recording stays local and is
+                  sent as the input file for cloning.
                 </Text>
                 <AudioRecorder key={inputMode} onChange={setInputFile} />
               </Stack>
