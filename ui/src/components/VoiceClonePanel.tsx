@@ -182,11 +182,6 @@ export const VoiceClonePanel = () => {
             />
           </Group>
 
-          <Stack gap={4}>
-            <Text fw={500}>Pitch shift ({pitch} semitones)</Text>
-            <Slider min={-12} max={12} step={1} value={pitch} onChange={setPitch} marks={[{ value: 0, label: "0" }]} />
-          </Stack>
-
           <Group>
             <Button
               size="md"
