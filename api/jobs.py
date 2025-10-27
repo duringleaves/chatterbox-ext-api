@@ -160,7 +160,8 @@ class JobManager:
                 copy_audio(src, dest_dir)
 
     def _build_zip(self, job: BatchJob, zip_path: Path) -> None:
-        silence_gap = AudioSegment.silent(duration=500)
+        # Use a full second of silence so back-to-back takes have a clear break.
+        silence_gap = AudioSegment.silent(duration=1000)
         concatenated_final_path = job.dir / "concatenated_final.wav"
         concatenated_raw_path = job.dir / "concatenated_raw.wav"
 

@@ -255,6 +255,7 @@ export const TextToSpeechPanel = () => {
 
   const generationMutation = useMutation({
     mutationFn: async () => {
+      const usedCloneVoice = cloneVoice;
       if (!baseOptions) throw new Error("Defaults not loaded");
       const trimmed = inputText.trim();
       if (!trimmed) throw new Error("Provide text to generate");
@@ -281,17 +282,17 @@ export const TextToSpeechPanel = () => {
         options
       };
       const res = await api.post<LineGenerationResponse>("/lines/generate", payload);
-      return res.data;
+      return { response: res.data, usedCloneVoice };
     },
     onMutate: () => {
       setGenerationError(null);
       setLatestOutputs([]);
       setLatestRawOutputs([]);
     },
-    onSuccess: (response) => {
+    onSuccess: ({ response, usedCloneVoice }) => {
       const onlyWav = (files?: FileResult[] | null) =>
         (files ?? []).filter((file) => file.path.toLowerCase().endsWith(".wav"));
-      setLatestOutputs(onlyWav(response.final_outputs));
+      setLatestOutputs(usedCloneVoice ? onlyWav(response.final_outputs) : []);
       setLatestRawOutputs(onlyWav(response.raw_outputs));
     },
     onError: (error: unknown) => {
