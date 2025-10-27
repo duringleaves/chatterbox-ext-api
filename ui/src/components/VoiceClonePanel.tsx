@@ -1,14 +1,13 @@
 import { useState } from "react";
 import {
   Alert,
-  Badge,
   Button,
   Card,
   FileInput,
-  Flex,
   Group,
   Loader,
   Select,
+  Slider,
   Space,
   Stack,
   Table,
@@ -18,8 +17,9 @@ import {
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { CloneVoice, FileResult } from "@/lib/types";
-import { IconAlertCircle, IconMicrophone, IconUpload } from "@tabler/icons-react";
+import { IconAlertCircle, IconMicrophone, IconPlayerPlay, IconUpload } from "@tabler/icons-react";
 import { AudioRecorder } from "./AudioRecorder";
+import { useApiKey } from "@/hooks/useApiKey";
 
 const toBase64 = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -39,6 +39,33 @@ const toBase64 = (file: File) =>
 
 type VoiceCloneOutput = FileResult & { renderedAt: number };
 
+const buildCloneUrl = (voice: string | null, filename: string | null, apiKey?: string | null) => {
+  if (!voice || !filename) return undefined;
+  const base = `/voices/clone/${encodeURIComponent(voice)}/${encodeURIComponent(filename)}`;
+  if (!apiKey) return base;
+  return `${base}?api_key=${encodeURIComponent(apiKey)}`;
+};
+
+const PlayButton = ({
+  url,
+  onPlay,
+  disabled = false
+}: {
+  url?: string;
+  onPlay?: (url: string) => void;
+  disabled?: boolean;
+}) => (
+  <Button
+    size="xs"
+    variant="light"
+    leftSection={<IconPlayerPlay size={14} />}
+    disabled={disabled || !url}
+    onClick={() => url && !disabled && onPlay?.(url)}
+  >
+    Preview sample
+  </Button>
+);
+
 export const VoiceClonePanel = () => {
   const { data: cloneVoices, isLoading } = useQuery<CloneVoice[]>({
     queryKey: ["clone-voices"],
@@ -48,13 +75,15 @@ export const VoiceClonePanel = () => {
     }
   });
 
+  const { apiKey } = useApiKey();
   const [inputFile, setInputFile] = useState<File | null>(null);
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
   const [selectedSample, setSelectedSample] = useState<string | null>(null);
   const [outputs, setOutputs] = useState<VoiceCloneOutput[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<"upload" | "record">("upload");
-  const pitch = 0;
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [clonePitch, setClonePitch] = useState<number>(0);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -72,7 +101,7 @@ export const VoiceClonePanel = () => {
           filename: sample,
           path: `data/clone_voices/${selectedVoice}/${sample}`
         },
-        pitch_shift: pitch,
+        pitch_shift: clonePitch,
         disable_watermark: true,
         export_formats: ["wav"],
         return_audio_base64: false
@@ -110,6 +139,13 @@ export const VoiceClonePanel = () => {
   const sampleOptions = cloneVoices
     ?.find((voice) => voice.name === selectedVoice)
     ?.files.map((file) => ({ value: file, label: file })) ?? [];
+  const selectedSampleUrl = buildCloneUrl(selectedVoice, selectedSample, apiKey);
+
+  const handlePreview = (url?: string) => {
+    if (!url) return;
+    const withTs = url.includes("?") ? `${url}&ts=${Date.now()}` : `${url}?ts=${Date.now()}`;
+    setPreviewUrl(withTs);
+  };
 
   return (
     <Stack gap="md">
@@ -192,26 +228,21 @@ export const VoiceClonePanel = () => {
             />
           </Group>
 
-          {selectedVoice && sampleOptions.length > 0 ? (
-            <Stack gap="xs">
-              <Text size="sm" fw={500}>
-                Reference files
-              </Text>
-              <Flex gap="xs" wrap="wrap">
-                {sampleOptions.map((option) => (
-                  <Badge
-                    key={option.value}
-                    variant={option.value === selectedSample ? "filled" : "outline"}
-                    color="violet"
-                    onClick={() => setSelectedSample(option.value)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    {option.label}
-                  </Badge>
-                ))}
-              </Flex>
-            </Stack>
-          ) : null}
+          <Group justify="flex-end">
+            <PlayButton url={selectedSampleUrl} onPlay={handlePreview} disabled={!selectedVoice || !selectedSample} />
+          </Group>
+
+          <Stack gap={4}>
+            <Text fw={500}>Clone pitch ({clonePitch} semitones)</Text>
+            <Slider
+              min={-12}
+              max={12}
+              step={1}
+              value={clonePitch}
+              onChange={setClonePitch}
+              marks={[{ value: 0, label: "0" }]}
+            />
+          </Stack>
 
           <Group>
             <Button
@@ -268,6 +299,16 @@ export const VoiceClonePanel = () => {
             </Table.Tbody>
           </Table>
         </Card>
+      )}
+
+      {previewUrl && (
+        <audio
+          key={previewUrl}
+          src={previewUrl}
+          autoPlay
+          onEnded={() => setPreviewUrl(null)}
+          style={{ display: "none" }}
+        />
       )}
     </Stack>
   );
