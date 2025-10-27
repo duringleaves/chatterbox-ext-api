@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
@@ -134,9 +134,8 @@ export const VoiceClonePanel = () => {
   });
 
   const voiceOptions = (cloneVoices || []).map((voice) => ({ value: voice.name, label: voice.name }));
-  const sampleOptions = cloneVoices
-    ?.find((voice) => voice.name === selectedVoice)
-    ?.files.map((file) => ({ value: file, label: file })) ?? [];
+  const rawSamples = cloneVoices?.find((voice) => voice.name === selectedVoice)?.files ?? [];
+  const sampleOptions = rawSamples.map((file) => ({ value: file, label: file }));
   const selectedSampleUrl = buildCloneUrl(selectedVoice, selectedSample, apiKey);
 
   const handlePreview = (url?: string) => {
@@ -144,6 +143,12 @@ export const VoiceClonePanel = () => {
     const withTs = url.includes("?") ? `${url}&ts=${Date.now()}` : `${url}?ts=${Date.now()}`;
     setPreviewUrl(withTs);
   };
+
+  useEffect(() => {
+    if (!selectedSample && rawSamples.length > 0) {
+      setSelectedSample(rawSamples[0]);
+    }
+  }, [selectedSample, rawSamples]);
 
   return (
     <Stack gap="md">
