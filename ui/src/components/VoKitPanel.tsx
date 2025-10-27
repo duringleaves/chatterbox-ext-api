@@ -195,6 +195,8 @@ const VARIANT_SUFFIX_MAP: Record<string, string> = {
   intense: "intense"
 };
 
+const PREFERRED_STYLE_NAME = "vo kit";
+
 const pickReferenceAudio = (
   voice: ReferenceVoice | undefined,
   styleName: string | null,
@@ -317,13 +319,15 @@ export const VoKitPanel = () => {
   }, [referenceVoices, selectedVoice]);
 
   useEffect(() => {
-    if (selectedVoice) {
-      const voice = referenceVoices.find((v) => v.name === selectedVoice);
-      if (voice) {
-        const style = voice.styles.find((s) => s.name === selectedStyle) ?? voice.styles[0];
-        setSelectedStyle(style?.name ?? null);
-      }
-    }
+    if (!selectedVoice) return;
+    const voice = referenceVoices.find((v) => v.name === selectedVoice);
+    if (!voice) return;
+    const preferred =
+      voice.styles.find((s) => s.name.toLowerCase() === PREFERRED_STYLE_NAME) ?? voice.styles[0] ?? null;
+    setSelectedStyle((prev) => {
+      const next = preferred?.name ?? null;
+      return prev === next ? prev : next;
+    });
   }, [referenceVoices, selectedVoice]);
 
   useEffect(() => {
@@ -758,15 +762,6 @@ export const VoKitPanel = () => {
                   data={referenceVoices.map((voice) => ({ value: voice.name, label: voice.name }))}
                   value={selectedVoice}
                   onChange={setSelectedVoice}
-                />
-                <Select
-                  label="Read style"
-                  data={
-                    activeVoice?.styles.map((style) => ({ value: style.name, label: style.name })) ?? []
-                  }
-                  value={selectedStyle}
-                  onChange={setSelectedStyle}
-                  disabled={!selectedVoice}
                 />
               </Group>
 

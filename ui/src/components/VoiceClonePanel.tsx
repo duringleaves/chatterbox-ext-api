@@ -1,9 +1,11 @@
 import { useState } from "react";
 import {
   Alert,
+  Badge,
   Button,
   Card,
   FileInput,
+  Flex,
   Group,
   Loader,
   Select,
@@ -189,6 +191,27 @@ export const VoiceClonePanel = () => {
               disabled={!selectedVoice}
             />
           </Group>
+
+          {selectedVoice && sampleOptions.length > 0 ? (
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Reference files
+              </Text>
+              <Flex gap="xs" wrap="wrap">
+                {sampleOptions.map((option) => (
+                  <Badge
+                    key={option.value}
+                    variant={option.value === selectedSample ? "filled" : "outline"}
+                    color="violet"
+                    onClick={() => setSelectedSample(option.value)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    {option.label}
+                  </Badge>
+                ))}
+              </Flex>
+            </Stack>
+          ) : null}
 
           <Group>
             <Button

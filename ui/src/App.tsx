@@ -13,6 +13,7 @@ import { IconAlertCircle } from "@tabler/icons-react";
 import { useApiKey } from "@/hooks/useApiKey";
 import { VoiceClonePanel } from "@/components/VoiceClonePanel";
 import { VoKitPanel } from "@/components/VoKitPanel";
+import { TextToSpeechPanel } from "@/components/TextToSpeechPanel";
 
 export default function App() {
   const { apiKey, setApiKey } = useApiKey();
@@ -69,10 +70,11 @@ export default function App() {
       <AppShell.Main>
         <Container size="lg" py="xl">
           {apiKey ? (
-            <Tabs value={activeTab} onChange={(val) => setActiveTab(val || "vo-kit")}>\
+            <Tabs value={activeTab} onChange={(val) => setActiveTab(val || "vo-kit")}>
               <Tabs.List>
                 <Tabs.Tab value="vo-kit">VO Kit</Tabs.Tab>
                 <Tabs.Tab value="voice-clone">Voice Clone</Tabs.Tab>
+                <Tabs.Tab value="text-to-speech">Text to Speech</Tabs.Tab>
               </Tabs.List>
 
               <Tabs.Panel value="vo-kit" pt="md">
@@ -81,6 +83,10 @@ export default function App() {
 
               <Tabs.Panel value="voice-clone" pt="md">
                 <VoiceClonePanel />
+              </Tabs.Panel>
+
+              <Tabs.Panel value="text-to-speech" pt="md">
+                <TextToSpeechPanel />
               </Tabs.Panel>
             </Tabs>
           ) : (
