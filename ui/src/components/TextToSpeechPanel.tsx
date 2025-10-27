@@ -101,11 +101,13 @@ const getReferenceUrl = (voice: string | null, style: string | null, file: strin
 const PlayButton = ({
   url,
   onPlay,
-  disabled = false
+  disabled = false,
+  label = "Preview"
 }: {
   url?: string;
   onPlay?: (url: string) => void;
   disabled?: boolean;
+  label?: string;
 }) => (
   <Button
     size="xs"
@@ -114,7 +116,7 @@ const PlayButton = ({
     disabled={disabled || !url}
     onClick={() => url && !disabled && onPlay?.(url)}
   >
-    Preview reference
+    {label}
   </Button>
 );
 
@@ -260,7 +262,7 @@ export const TextToSpeechPanel = () => {
       const style = voice?.styles.find((s) => s.name === selectedStyle);
       const options = applyStyleOverrides({ ...baseOptions }, style, selectedTag || null);
       options.sound_words_field = baseOptions.sound_words_field ?? "";
-      options.export_formats = Array.from(new Set([...options.export_formats, "wav"]));
+      options.export_formats = ["wav"];
       const repeatedText = takesPerLine > 1 ? Array.from({ length: takesPerLine }, () => trimmed).join("\n") : trimmed;
       const payload = {
         line_id: `tts-${Date.now()}`,
@@ -401,7 +403,12 @@ export const TextToSpeechPanel = () => {
                   disabled={referenceAudioOptions.length === 0}
                   searchable
                 />
-                <PlayButton url={referenceUrl} onPlay={handlePreview} disabled={!selectedReferenceAudio} />
+                <PlayButton
+                  url={referenceUrl}
+                  onPlay={handlePreview}
+                  disabled={!selectedReferenceAudio}
+                  label="Preview reference"
+                />
               </Group>
             </>
           )}
@@ -493,16 +500,21 @@ export const TextToSpeechPanel = () => {
                         )}
                       </Group>
                     </Stack>
-                    <Button
-                      component="a"
-                      href={file.url ?? undefined}
-                      variant="light"
-                      color="teal"
-                      leftSection={<IconDownload size={14} />}
-                      disabled={!file.url}
-                    >
-                      Download
-                    </Button>
+                    <Group gap="xs">
+                      {isAudioFile(file.path) && file.url ? (
+                        <PlayButton url={file.url} onPlay={handlePreview} />
+                      ) : null}
+                      <Button
+                        component="a"
+                        href={file.url ?? undefined}
+                        variant="light"
+                        color="teal"
+                        leftSection={<IconDownload size={14} />}
+                        disabled={!file.url}
+                      >
+                        Download
+                      </Button>
+                    </Group>
                   </Group>
                 ))}
               </Stack>
@@ -516,16 +528,21 @@ export const TextToSpeechPanel = () => {
                 {latestRawOutputs.map((file) => (
                   <Group key={file.path} justify="space-between" align="center">
                     <Text size="sm">{file.path}</Text>
-                    <Button
-                      component="a"
-                      href={file.url ?? undefined}
-                      variant="light"
-                      color="gray"
-                      leftSection={<IconDownload size={14} />}
-                      disabled={!file.url}
-                    >
-                      Download
-                    </Button>
+                    <Group gap="xs">
+                      {isAudioFile(file.path) && file.url ? (
+                        <PlayButton url={file.url} onPlay={handlePreview} label="Preview raw" />
+                      ) : null}
+                      <Button
+                        component="a"
+                        href={file.url ?? undefined}
+                        variant="light"
+                        color="gray"
+                        leftSection={<IconDownload size={14} />}
+                        disabled={!file.url}
+                      >
+                        Download
+                      </Button>
+                    </Group>
                   </Group>
                 ))}
               </Stack>
