@@ -7,7 +7,6 @@ import {
   Group,
   Loader,
   Select,
-  Slider,
   Space,
   Stack,
   Table,
@@ -83,7 +82,6 @@ export const VoiceClonePanel = () => {
   const [error, setError] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<"upload" | "record">("upload");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [clonePitch, setClonePitch] = useState<number>(0);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -101,7 +99,7 @@ export const VoiceClonePanel = () => {
           filename: sample,
           path: `data/clone_voices/${selectedVoice}/${sample}`
         },
-        pitch_shift: clonePitch,
+        pitch_shift: 0,
         disable_watermark: true,
         export_formats: ["wav"],
         return_audio_base64: false
@@ -231,18 +229,6 @@ export const VoiceClonePanel = () => {
           <Group justify="flex-end">
             <PlayButton url={selectedSampleUrl} onPlay={handlePreview} disabled={!selectedVoice || !selectedSample} />
           </Group>
-
-          <Stack gap={4}>
-            <Text fw={500}>Clone pitch ({clonePitch} semitones)</Text>
-            <Slider
-              min={-12}
-              max={12}
-              step={1}
-              value={clonePitch}
-              onChange={setClonePitch}
-              marks={[{ value: 0, label: "0" }]}
-            />
-          </Stack>
 
           <Group>
             <Button

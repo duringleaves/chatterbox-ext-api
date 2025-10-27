@@ -145,7 +145,6 @@ export const TextToSpeechPanel = () => {
   const [selectedTag, setSelectedTag] = useState<string>("");
   const [cloneVoice, setCloneVoice] = useState<string | null>(null);
   const [cloneSample, setCloneSample] = useState<string | null>(null);
-  const [clonePitch, setClonePitch] = useState<number>(0);
   const [takesPerLine, setTakesPerLine] = useState<number>(1);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -278,7 +277,7 @@ export const TextToSpeechPanel = () => {
         tag: selectedTag || undefined,
         clone_voice: cloneVoice ?? undefined,
         clone_audio: cloneSample ?? undefined,
-        clone_pitch: clonePitch,
+        clone_pitch: 0,
         options
       };
       const res = await api.post<LineGenerationResponse>("/lines/generate", payload);
@@ -453,17 +452,6 @@ export const TextToSpeechPanel = () => {
                   disabled={!cloneVoice}
                 />
               </Group>
-              <Stack gap={4}>
-                <Text fw={500}>Clone pitch ({clonePitch} semitones)</Text>
-                <Slider
-                  min={-12}
-                  max={12}
-                  step={1}
-                  value={clonePitch}
-                  onChange={setClonePitch}
-                  marks={[{ value: 0, label: "0" }]}
-                />
-              </Stack>
             </Stack>
           </Collapse>
         </Stack>

@@ -286,7 +286,6 @@ export const VoKitPanel = () => {
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [cloneVoice, setCloneVoice] = useState<string | null>(null);
   const [cloneSample, setCloneSample] = useState<string | null>(null);
-  const [clonePitch, setClonePitch] = useState<number>(0);
   const [takesPerLine, setTakesPerLine] = useState<number>(1);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [activeLoaderTab, setActiveLoaderTab] = useState<string>("upload");
@@ -466,7 +465,7 @@ export const VoKitPanel = () => {
         sound_words_field: line.soundWordsField,
         clone_voice: cloneVoice ?? undefined,
         clone_audio: cloneSample ?? undefined,
-        clone_pitch: clonePitch,
+        clone_pitch: 0,
         job_id: lastJobId ?? undefined,
         queue_position: queuePosition || undefined,
         options
@@ -532,7 +531,7 @@ export const VoKitPanel = () => {
           sound_words_field: line.soundWordsField,
           clone_voice: cloneVoice ?? undefined,
           clone_audio: cloneSample ?? undefined,
-          clone_pitch: clonePitch,
+        clone_pitch: 0,
           queue_position: queuePosition || undefined,
           options
         };
@@ -783,10 +782,6 @@ export const VoKitPanel = () => {
                   disabled={!cloneVoice}
                 />
           </Group>
-          <Stack gap={4}>
-            <Text fw={500}>Clone pitch ({clonePitch} semitones)</Text>
-            <Slider min={-12} max={12} step={1} value={clonePitch} onChange={setClonePitch} marks={[{ value: 0, label: "0" }]} />
-          </Stack>
           <Stack gap={4}>
             <Text fw={500}>Takes per line ({takesPerLine})</Text>
             <Slider
