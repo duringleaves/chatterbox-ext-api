@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   Card,
+  Collapse,
   Divider,
   Group,
   Loader,
@@ -151,6 +152,7 @@ export const TextToSpeechPanel = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [latestOutputs, setLatestOutputs] = useState<FileResult[]>([]);
   const [latestRawOutputs, setLatestRawOutputs] = useState<FileResult[]>([]);
+  const [cloneOptionsOpen, setCloneOptionsOpen] = useState<boolean>(false);
 
   const defaults = defaultsQuery.data;
   const referenceVoices = referenceVoicesQuery.data ?? [];
@@ -190,8 +192,9 @@ export const TextToSpeechPanel = () => {
     if (!selectedVoice) return;
     const voice = referenceVoices.find((v) => v.name === selectedVoice);
     if (!voice) return;
-    const defaultStyle = voice.styles[0];
-    setSelectedStyle(defaultStyle?.name ?? null);
+    const preferred =
+      voice.styles.find((style) => style.name.toLowerCase() === "normal") ?? voice.styles[0] ?? null;
+    setSelectedStyle(preferred?.name ?? null);
     setSelectedTag("");
   }, [referenceVoices, selectedVoice]);
 
@@ -286,8 +289,10 @@ export const TextToSpeechPanel = () => {
       setLatestRawOutputs([]);
     },
     onSuccess: (response) => {
-      setLatestOutputs(response.final_outputs ?? []);
-      setLatestRawOutputs(response.raw_outputs ?? []);
+      const onlyWav = (files?: FileResult[] | null) =>
+        (files ?? []).filter((file) => file.path.toLowerCase().endsWith(".wav"));
+      setLatestOutputs(onlyWav(response.final_outputs));
+      setLatestRawOutputs(onlyWav(response.raw_outputs));
     },
     onError: (error: unknown) => {
       if (error && typeof error === "object" && "response" in error && (error as any).response) {
@@ -416,36 +421,50 @@ export const TextToSpeechPanel = () => {
       </Card>
 
       <Card withBorder padding="lg" radius="md" shadow="sm">
-        <Stack gap="md">
-          <Title order={4}>Clone Options</Title>
-          <Group grow>
-            <Select
-              label="Clone voice"
-              placeholder="None"
-              data={[{ value: "", label: "None" }, ...cloneVoiceOptions]}
-              value={cloneVoice ?? ""}
-              onChange={(value) => setCloneVoice(value || null)}
-            />
-            <Select
-              label="Clone sample"
-              placeholder="Auto"
-              data={cloneSampleOptions}
-              value={cloneSample}
-              onChange={setCloneSample}
-              disabled={!cloneVoice}
-            />
+        <Stack gap="sm">
+          <Group justify="space-between" align="center">
+            <Title order={4}>Clone Options</Title>
+            <Button
+              variant="subtle"
+              size="xs"
+              color="violet"
+              onClick={() => setCloneOptionsOpen((prev) => !prev)}
+            >
+              {cloneOptionsOpen ? "Hide" : "Show"}
+            </Button>
           </Group>
-          <Stack gap={4}>
-            <Text fw={500}>Clone pitch ({clonePitch} semitones)</Text>
-            <Slider
-              min={-12}
-              max={12}
-              step={1}
-              value={clonePitch}
-              onChange={setClonePitch}
-              marks={[{ value: 0, label: "0" }]}
-            />
-          </Stack>
+          <Collapse in={cloneOptionsOpen}>
+            <Stack gap="md">
+              <Group grow>
+                <Select
+                  label="Clone voice"
+                  placeholder="None"
+                  data={[{ value: "", label: "None" }, ...cloneVoiceOptions]}
+                  value={cloneVoice ?? ""}
+                  onChange={(value) => setCloneVoice(value || null)}
+                />
+                <Select
+                  label="Clone sample"
+                  placeholder="Auto"
+                  data={cloneSampleOptions}
+                  value={cloneSample}
+                  onChange={setCloneSample}
+                  disabled={!cloneVoice}
+                />
+              </Group>
+              <Stack gap={4}>
+                <Text fw={500}>Clone pitch ({clonePitch} semitones)</Text>
+                <Slider
+                  min={-12}
+                  max={12}
+                  step={1}
+                  value={clonePitch}
+                  onChange={setClonePitch}
+                  marks={[{ value: 0, label: "0" }]}
+                />
+              </Stack>
+            </Stack>
+          </Collapse>
         </Stack>
       </Card>
 
