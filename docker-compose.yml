@@ -29,5 +29,4 @@ services:
       - ./temp:/app/temp
       - ./settings.json:/app/settings.json:rw
       - ./config/tts_defaults.json:/app/config/tts_defaults.json:rw
-      - ./ui/dist:/app/ui/dist
     restart: unless-stopped
