@@ -42,7 +42,7 @@
     },
     {
       "text": "[fast]%slogan%",
-      "reference": "slogan"
+      "reference": "slogan_fast"
     },
     {
       "text": "[slow]%slogan%",
@@ -50,7 +50,7 @@
     },
     {
       "text": "[intense]%slogan%",
-      "reference": "slogan"
+      "reference": "slogan_intense"
     }
   ],
   "MORNING SHOW": [
