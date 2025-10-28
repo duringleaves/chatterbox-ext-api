@@ -67,6 +67,25 @@ const extractTag = (text: string): { tag?: string; clean: string } => {
   return { tag: tagMatch[1].toLowerCase(), clean };
 };
 
+const stripPlainTagPrefix = (text: string): { tag?: string; clean: string } => {
+  const patterns: Array<{ regex: RegExp; tag?: string }> = [
+    { regex: /^normal\s+read\s*-\s*/i },
+    { regex: /^fast\s+read\s*-\s*/i, tag: "fast" },
+    { regex: /^slow\s+read\s*-\s*/i, tag: "slow" },
+    { regex: /^intense\s+read\s*-\s*/i, tag: "intense" }
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern.regex);
+    if (match) {
+      const clean = text.slice(match[0].length).trim();
+      return { tag: pattern.tag, clean };
+    }
+  }
+
+  return { clean: text.trim() };
+};
+
 const parsePlainScript = (content: string): ScriptLine[] => {
   const lines: ScriptLine[] = [];
   let currentSection = "Misc";
@@ -78,12 +97,15 @@ const parsePlainScript = (content: string): ScriptLine[] => {
       return;
     }
     const { tag, clean } = extractTag(trimmed);
+    const prefixExtract = stripPlainTagPrefix(clean);
+    const finalText = prefixExtract.clean;
+    const finalTag = tag ?? prefixExtract.tag;
     lines.push({
       id: `line-${index}`,
       section: currentSection,
-      text: clean,
-      baseText: clean,
-      tag,
+      text: finalText,
+      baseText: finalText,
+      tag: finalTag,
       status: "pending"
     });
   });

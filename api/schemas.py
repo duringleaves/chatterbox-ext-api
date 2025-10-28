@@ -71,7 +71,7 @@ class SoundWordReplacement(BaseModel):
 
 
 class TTSOptions(BaseModel):
-    exaggeration: float = Field(default=CHATTER_DEFAULTS["exaggeration_slider"], ge=0.0, le=2.0)
+    exaggeration: float = Field(default=CHATTER_DEFAULTS["exaggeration_slider"], ge=0.0, le=3.0)
     temperature: float = Field(default=CHATTER_DEFAULTS["temp_slider"], ge=0.0)
     seed: int = Field(default=CHATTER_DEFAULTS["seed_input"])
     cfg_weight: float = Field(default=CHATTER_DEFAULTS["cfg_weight_slider"], ge=0.0)
