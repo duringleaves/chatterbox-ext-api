@@ -408,21 +408,58 @@ export const VoKitPanel = () => {
     return template;
   };
 
-  const applyStationSample = async (sampleId: string, template?: Record<string, any>) => {
+  const applyStationSample = async (
+    sampleId: string,
+    template?: Record<string, { text: string; reference?: string }[]>
+  ) => {
     const res = await api.get(`/data/sample-stations/${encodeURIComponent(sampleId)}`);
     const sample = res.data as Record<string, string>;
-    const values = { ...stationFormValues };
+
+    const rawFormat = typeof sample.format === "string" ? sample.format.trim() : "";
+    const matchingFormat = rawFormat
+      ? stationFormatsQuery.data?.find((item) => item.id.toLowerCase() === rawFormat.toLowerCase())
+      : undefined;
+    const derivedTemplateId = matchingFormat?.id ?? (rawFormat || null);
+
+    let targetTemplateId = derivedTemplateId ?? selectedTemplateId ?? null;
+    let templateToUse = template;
+
+    if (derivedTemplateId) {
+      if (derivedTemplateId !== selectedTemplateId) {
+        templateToUse = await loadStationTemplate(derivedTemplateId);
+      } else if (!templateToUse) {
+        templateToUse = await loadStationTemplate(derivedTemplateId);
+      }
+    } else if (!templateToUse && targetTemplateId) {
+      templateToUse = await loadStationTemplate(targetTemplateId);
+    }
+
+    if (targetTemplateId) {
+      setSelectedTemplateId(targetTemplateId);
+    }
+
+    const initialValues: Record<string, string> = templateToUse
+      ? extractTemplateKeys(templateToUse).reduce<Record<string, string>>((acc, key) => {
+          acc[key] = stationFormValues[key] ?? "";
+          return acc;
+        }, {})
+      : { ...stationFormValues };
+
     Object.entries(sample).forEach(([key, value]) => {
       if (typeof value === "string") {
-        values[key] = value;
+        initialValues[key] = value;
       }
     });
-    setStationFormValues(values);
-    if (!selectedTemplateId) return;
-    const tmpl = template ?? (await loadStationTemplate(selectedTemplateId));
-    const lines = substituteTemplate(tmpl, values);
+
+    setStationFormValues(initialValues);
+
+    if (!templateToUse || !targetTemplateId) {
+      return;
+    }
+
+    const lines = substituteTemplate(templateToUse, initialValues);
     setScriptLines(lines);
-    setScriptName(`${sampleId} (${selectedTemplateId})`);
+    setScriptName(`${sampleId} (${targetTemplateId})`);
   };
 
   const analyzeMutation = useMutation({
@@ -724,8 +761,15 @@ export const VoKitPanel = () => {
                     value={selectedSampleStationId}
                     onChange={(value) => {
                       setSelectedSampleStationId(value);
-                      if (value && selectedTemplateId) {
-                        loadStationTemplate(selectedTemplateId).then((template) => applyStationSample(value, template));
+                      if (!value) return;
+                      if (selectedTemplateId) {
+                        loadStationTemplate(selectedTemplateId)
+                          .then((template) => applyStationSample(value, template))
+                          .catch(() => {
+                            applyStationSample(value);
+                          });
+                      } else {
+                        applyStationSample(value);
                       }
                     }}
                   />
