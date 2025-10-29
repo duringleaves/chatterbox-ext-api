@@ -1176,7 +1176,13 @@ export const VoKitPanel = () => {
                           <Table.Td colSpan={5}>
                             <Accordion variant="separated" radius="md" defaultValue="__closed">
                               <Accordion.Item value={`params-${line.id}`}>
-                                <Accordion.Control>Line settings</Accordion.Control>
+                                <Accordion.Control>
+                                  <Group gap={4} justify="flex-end">
+                                    <Badge variant="outline" size="xs">
+                                      Options
+                                    </Badge>
+                                  </Group>
+                                </Accordion.Control>
                                 <Accordion.Panel>
                                   <Stack gap="sm">
                                     <Flex gap="md" wrap="wrap">
