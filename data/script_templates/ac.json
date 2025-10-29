@@ -24,10 +24,13 @@
     { "text": "[intense]%holiday_slogan%", "reference": "holiday" }
   ],
   "MORNING SHOW": [
+        {
+          "text": "%morningShow%",
+          "reference": "show"
+        },
     { "text": "This is %morningShow%", "reference": "this_is_show" },
     { "text": "Wake Up With %morningShow%", "reference": "wake_up_show" },
-    { "text": "You’re Listening To %morningShow%", "reference": "youre_listening_show" },
-    { "text": "%morningShow%", "reference": "show" }
+    { "text": "You’re Listening To %morningShow%", "reference": "youre_listening_show" }
   ],
   "MIDDAYS": [
     { "text": "%middays%", "reference": "show" },
