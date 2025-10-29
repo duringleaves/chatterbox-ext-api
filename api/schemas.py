@@ -71,10 +71,10 @@ class SoundWordReplacement(BaseModel):
 
 
 class TTSOptions(BaseModel):
-    exaggeration: float = Field(default=CHATTER_DEFAULTS["exaggeration_slider"], ge=0.0, le=3.0)
-    temperature: float = Field(default=CHATTER_DEFAULTS["temp_slider"], ge=0.0)
+    exaggeration: float = Field(default=CHATTER_DEFAULTS["exaggeration_slider"], ge=0.05, le=3.0)
+    temperature: float = Field(default=CHATTER_DEFAULTS["temp_slider"], ge=0.05)
     seed: int = Field(default=CHATTER_DEFAULTS["seed_input"])
-    cfg_weight: float = Field(default=CHATTER_DEFAULTS["cfg_weight_slider"], ge=0.0)
+    cfg_weight: float = Field(default=CHATTER_DEFAULTS["cfg_weight_slider"], ge=0.05)
     use_pyrnnoise: bool = Field(default=CHATTER_DEFAULTS["use_pyrnnoise_checkbox"])
     use_auto_editor: bool = Field(default=CHATTER_DEFAULTS["use_auto_editor_checkbox"])
     auto_editor_threshold: float = Field(default=CHATTER_DEFAULTS["threshold_slider"], ge=0.0)
