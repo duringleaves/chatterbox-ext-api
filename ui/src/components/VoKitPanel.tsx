@@ -1047,7 +1047,7 @@ export const VoKitPanel = () => {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th className={classes.textCol}>Text</Table.Th>
-                <Table.Th className={classes.tagCol}>Tag</Table.Th>
+                <Table.Th className={classes.tagCol}>Options</Table.Th>
                 <Table.Th className={classes.refCol}>Reference Audio</Table.Th>
                 <Table.Th className={classes.statusCol}>Status</Table.Th>
                 <Table.Th className={classes.actionsCol}>Actions</Table.Th>
@@ -1095,15 +1095,104 @@ export const VoKitPanel = () => {
                             />
                           </Table.Td>
                           <Table.Td className={classes.tagCol}>
-                            <Select
-                              value={line.tag ?? ""}
-                              onChange={(value) =>
-                                setScriptLines((prev) =>
-                                  prev.map((item) => (item.id === line.id ? { ...item, tag: value || null } : item))
-                                )
-                              }
-                              data={tagOptions}
-                            />
+                            <Stack gap={6}>
+                              <Select
+                                value={line.tag ?? ""}
+                                onChange={(value) =>
+                                  setScriptLines((prev) =>
+                                    prev.map((item) => (item.id === line.id ? { ...item, tag: value || null } : item))
+                                  )
+                                }
+                                data={tagOptions}
+                              />
+                              <Accordion variant="separated" radius="md" defaultValue="__closed">
+                                <Accordion.Item value={`params-${line.id}`}>
+                                  <Accordion.Control>
+                                    <Text size="xs" fw={500}>
+                                      Options
+                                    </Text>
+                                  </Accordion.Control>
+                                  <Accordion.Panel>
+                                    <Stack gap="sm">
+                                      <Flex gap="md" wrap="wrap">
+                                        <NumberInput
+                                          label="Temperature"
+                                          value={line.temperatureOverride ?? undefined}
+                                          onChange={(val) =>
+                                            applyNumericOverride(line.id, "temperatureOverride", val, defaultTemperature)
+                                          }
+                                          precision={2}
+                                          step={0.05}
+                                          min={0}
+                                          max={2}
+                                          placeholder={defaultTemperature.toFixed(2)}
+                                          style={{ minWidth: 140 }}
+                                        />
+                                        <NumberInput
+                                          label="Exaggeration"
+                                          value={line.exaggerationOverride ?? undefined}
+                                          onChange={(val) =>
+                                            applyNumericOverride(line.id, "exaggerationOverride", val, defaultExaggeration)
+                                          }
+                                          precision={2}
+                                          step={0.05}
+                                          min={0}
+                                          max={2}
+                                          placeholder={defaultExaggeration.toFixed(2)}
+                                          style={{ minWidth: 140 }}
+                                        />
+                                        <NumberInput
+                                          label="CFG weight"
+                                          value={line.cfgWeightOverride ?? undefined}
+                                          onChange={(val) =>
+                                            applyNumericOverride(line.id, "cfgWeightOverride", val, defaultCfgWeight)
+                                          }
+                                          precision={2}
+                                          step={0.05}
+                                          min={0}
+                                          max={5}
+                                          placeholder={defaultCfgWeight.toFixed(2)}
+                                          style={{ minWidth: 140 }}
+                                        />
+                                        <NumberInput
+                                          label="Num candidates"
+                                          value={line.numCandidatesOverride ?? undefined}
+                                          onChange={(val) =>
+                                            applyNumericOverride(line.id, "numCandidatesOverride", val, defaultNumCandidates, {
+                                              integer: true
+                                            })
+                                          }
+                                          min={1}
+                                          step={1}
+                                          placeholder={defaultNumCandidates.toString()}
+                                          style={{ minWidth: 140 }}
+                                        />
+                                        <Switch
+                                          label="Bypass Whisper"
+                                          checked={line.bypassWhisperOverride ?? defaultBypassWhisper}
+                                          onChange={(event) =>
+                                            applyBooleanOverride(
+                                              line.id,
+                                              "bypassWhisperOverride",
+                                              event.currentTarget.checked,
+                                              defaultBypassWhisper
+                                            )
+                                          }
+                                        />
+                                      </Flex>
+                                      <Group justify="space-between">
+                                        <Text size="xs" c="dimmed">
+                                          Defaults – Temp {defaultTemperature.toFixed(2)}, Exag {defaultExaggeration.toFixed(2)}, CFG {defaultCfgWeight.toFixed(2)}, Candidates {defaultNumCandidates}, Bypass {defaultBypassWhisper ? "On" : "Off"}
+                                        </Text>
+                                        <Button size="xs" variant="subtle" onClick={() => resetLineOverrides(line.id)}>
+                                          Reset overrides
+                                        </Button>
+                                      </Group>
+                                    </Stack>
+                                  </Accordion.Panel>
+                                </Accordion.Item>
+                              </Accordion>
+                            </Stack>
                           </Table.Td>
                           <Table.Td className={classes.refCol}>
                             <Stack gap={4}>
@@ -1170,99 +1259,6 @@ export const VoKitPanel = () => {
                                 </ActionIcon>
                               </Group>
                             </Stack>
-                          </Table.Td>
-                        </Table.Tr>
-                        <Table.Tr>
-                          <Table.Td colSpan={5}>
-                            <Accordion variant="separated" radius="md" defaultValue="__closed">
-                              <Accordion.Item value={`params-${line.id}`}>
-                                <Accordion.Control>
-                                  <Group gap={4} justify="flex-end">
-                                    <Badge variant="outline" size="xs">
-                                      Options
-                                    </Badge>
-                                  </Group>
-                                </Accordion.Control>
-                                <Accordion.Panel>
-                                  <Stack gap="sm">
-                                    <Flex gap="md" wrap="wrap">
-                                      <NumberInput
-                                        label="Temperature"
-                                        value={line.temperatureOverride ?? undefined}
-                                        onChange={(val) =>
-                                          applyNumericOverride(line.id, "temperatureOverride", val, defaultTemperature)
-                                        }
-                                        precision={2}
-                                        step={0.05}
-                                        min={0}
-                                        max={2}
-                                        placeholder={defaultTemperature.toFixed(2)}
-                                        style={{ minWidth: 160 }}
-                                      />
-                                      <NumberInput
-                                        label="Exaggeration"
-                                        value={line.exaggerationOverride ?? undefined}
-                                        onChange={(val) =>
-                                          applyNumericOverride(line.id, "exaggerationOverride", val, defaultExaggeration)
-                                        }
-                                        precision={2}
-                                        step={0.05}
-                                        min={0}
-                                        max={2}
-                                        placeholder={defaultExaggeration.toFixed(2)}
-                                        style={{ minWidth: 160 }}
-                                      />
-                                      <NumberInput
-                                        label="CFG weight"
-                                        value={line.cfgWeightOverride ?? undefined}
-                                        onChange={(val) =>
-                                          applyNumericOverride(line.id, "cfgWeightOverride", val, defaultCfgWeight)
-                                        }
-                                        precision={2}
-                                        step={0.05}
-                                        min={0}
-                                        max={5}
-                                        placeholder={defaultCfgWeight.toFixed(2)}
-                                        style={{ minWidth: 160 }}
-                                      />
-                                      <NumberInput
-                                        label="Num candidates"
-                                        value={line.numCandidatesOverride ?? undefined}
-                                        onChange={(val) =>
-                                          applyNumericOverride(line.id, "numCandidatesOverride", val, defaultNumCandidates, {
-                                            integer: true
-                                          })
-                                        }
-                                        min={1}
-                                        step={1}
-                                        placeholder={defaultNumCandidates.toString()}
-                                        style={{ minWidth: 160 }}
-                                      />
-                                      <Switch
-                                        label="Bypass Whisper"
-                                        checked={line.bypassWhisperOverride ?? defaultBypassWhisper}
-                                        onChange={(event) =>
-                                          applyBooleanOverride(
-                                            line.id,
-                                            "bypassWhisperOverride",
-                                            event.currentTarget.checked,
-                                            defaultBypassWhisper
-                                          )
-                                        }
-                                      />
-                                    </Flex>
-                                    <Group justify="space-between">
-                                      <Text size="xs" c="dimmed">
-                                        Defaults – Temp {defaultTemperature.toFixed(2)}, Exag {defaultExaggeration.toFixed(2)}, CFG {defaultCfgWeight.toFixed(2)}, Candidates {defaultNumCandidates}, Bypass {defaultBypassWhisper ? "On" : "Off"}
-                                      </Text>
-                                      <Button size="xs" variant="subtle" onClick={() => resetLineOverrides(line.id)}>
-                                        Reset overrides
-                                      </Button>
-                                    </Group>
-                                  </Stack>
-                                </Accordion.Panel>
-                              </Accordion.Item>
-                            </Accordion>
                           </Table.Td>
                         </Table.Tr>
                       </Fragment>
