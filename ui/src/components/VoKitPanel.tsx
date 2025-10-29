@@ -1,6 +1,7 @@
-import { ChangeEvent, Fragment, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActionIcon,
+  Accordion,
   Alert,
   Badge,
   Button,
@@ -10,10 +11,12 @@ import {
   Flex,
   Group,
   Loader,
+  NumberInput,
   Select,
   Slider,
   Space,
   Stack,
+  Switch,
   Table,
   Tabs,
   Text,
@@ -54,6 +57,13 @@ interface ScriptLine {
   rawOutputs?: FileResult[];
   finalOutputs?: FileResult[];
   error?: string | null;
+  metadata?: Record<string, string> | null;
+  autoReference?: boolean;
+  temperatureOverride?: number | null;
+  exaggerationOverride?: number | null;
+  cfgWeightOverride?: number | null;
+  numCandidatesOverride?: number | null;
+  bypassWhisperOverride?: boolean | null;
 }
 
 const sanitizeSection = (section: string) => section.replace(/[<>]/g, "").trim();
@@ -273,7 +283,14 @@ const pickReferenceAudio = (
   return candidates[index] ?? current ?? null;
 };
 
-const toFileResults = (outputs?: FileResult[]) => outputs ?? [];
+const toFileResults = (outputs?: FileResult[] | null) => (outputs ?? []).map((item) => ({ ...item }));
+
+const parseGeneratedAt = (metadata?: Record<string, string> | null): number | null => {
+  const value = metadata?.generated_at;
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
 
 export const VoKitPanel = () => {
   const defaultsQuery = useQuery<Record<string, any>>({
@@ -319,6 +336,78 @@ export const VoKitPanel = () => {
   const [latestZipFile, setLatestZipFile] = useState<FileResult | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [zipError, setZipError] = useState<string | null>(null);
+
+  const updateLineOverrides = useCallback(
+    (lineId: string, changes: Partial<Pick<ScriptLine, "temperatureOverride" | "exaggerationOverride" | "cfgWeightOverride" | "numCandidatesOverride" | "bypassWhisperOverride">>) => {
+      setScriptLines((prev) =>
+        prev.map((line) => (line.id === lineId ? { ...line, ...changes } : line))
+      );
+    },
+    [setScriptLines]
+  );
+
+  const resetLineOverrides = useCallback(
+    (lineId: string) => {
+      setScriptLines((prev) =>
+        prev.map((line) =>
+          line.id === lineId
+            ? {
+                ...line,
+                temperatureOverride: null,
+                exaggerationOverride: null,
+                cfgWeightOverride: null,
+                numCandidatesOverride: null,
+                bypassWhisperOverride: null
+              }
+            : line
+        )
+      );
+    },
+    [setScriptLines]
+  );
+
+  const applyNumericOverride = useCallback(
+    (
+      lineId: string,
+      key: "temperatureOverride" | "exaggerationOverride" | "cfgWeightOverride" | "numCandidatesOverride",
+      rawValue: string | number | null,
+      defaultValue: number,
+      { integer }: { integer?: boolean } = {}
+    ) => {
+      setScriptLines((prev) =>
+        prev.map((line) => {
+          if (line.id !== lineId) return line;
+          let parsed: number | null = null;
+          if (rawValue !== "" && rawValue !== null && rawValue !== undefined) {
+            const numeric = typeof rawValue === "number" ? rawValue : Number(rawValue);
+            if (Number.isFinite(numeric)) {
+              parsed = numeric;
+            }
+          }
+          if (parsed !== null && integer) {
+            parsed = Math.max(1, Math.round(parsed));
+          }
+          if (parsed !== null && Math.abs(parsed - defaultValue) < 1e-6) {
+            parsed = null;
+          }
+          return {
+            ...line,
+            [key]: parsed,
+          } as ScriptLine;
+        })
+      );
+    },
+    [setScriptLines]
+  );
+
+  const applyBooleanOverride = useCallback(
+    (lineId: string, key: "bypassWhisperOverride", nextValue: boolean, defaultValue: boolean) => {
+      updateLineOverrides(lineId, {
+        [key]: nextValue === defaultValue ? null : nextValue,
+      } as Partial<Pick<ScriptLine, "bypassWhisperOverride">>);
+    },
+    [updateLineOverrides]
+  );
 
   const triggerPlayback = (url?: string) => {
     if (!url) return;
@@ -511,6 +600,21 @@ export const VoKitPanel = () => {
       const options = applyStyleOverrides({ ...baseOptions }, style, line.tag);
       options.sound_words_field = line.soundWordsField ?? baseOptions.sound_words_field ?? "";
       options.export_formats = Array.from(new Set([...options.export_formats, "wav"]));
+      if (line.temperatureOverride != null) {
+        options.temperature = line.temperatureOverride;
+      }
+      if (line.exaggerationOverride != null) {
+        options.exaggeration = line.exaggerationOverride;
+      }
+      if (line.cfgWeightOverride != null) {
+        options.cfg_weight = line.cfgWeightOverride;
+      }
+      if (line.numCandidatesOverride != null) {
+        options.num_candidates = Math.max(1, Math.round(line.numCandidatesOverride));
+      }
+      if (line.bypassWhisperOverride != null) {
+        options.bypass_whisper = line.bypassWhisperOverride;
+      }
       const queuePosition = scriptLines.findIndex((item) => item.id === line.id) + 1;
       const repeatedText = takesPerLine > 1 ? Array.from({ length: takesPerLine }, () => line.text).join("\n") : line.text;
       const payload = {
@@ -542,6 +646,7 @@ export const VoKitPanel = () => {
                 status: "completed",
                 rawOutputs: toFileResults(response.raw_outputs),
                 finalOutputs: toFileResults(response.final_outputs),
+                metadata: response.metadata ?? line.metadata ?? null,
                 error: null
               }
             : line
@@ -574,6 +679,21 @@ export const VoKitPanel = () => {
         const options = applyStyleOverrides({ ...baseOptions }, style, line.tag);
         options.sound_words_field = line.soundWordsField ?? baseOptions.sound_words_field ?? "";
         options.export_formats = Array.from(new Set([...options.export_formats, "wav"]));
+        if (line.temperatureOverride != null) {
+          options.temperature = line.temperatureOverride;
+        }
+        if (line.exaggerationOverride != null) {
+          options.exaggeration = line.exaggerationOverride;
+        }
+        if (line.cfgWeightOverride != null) {
+          options.cfg_weight = line.cfgWeightOverride;
+        }
+        if (line.numCandidatesOverride != null) {
+          options.num_candidates = Math.max(1, Math.round(line.numCandidatesOverride));
+        }
+        if (line.bypassWhisperOverride != null) {
+          options.bypass_whisper = line.bypassWhisperOverride;
+        }
         if (!line.referenceAudio) {
           throw new Error(`Line ${line.id} is missing reference audio`);
         }
@@ -646,12 +766,37 @@ export const VoKitPanel = () => {
       prev.map((line) => {
         const state = status.lines.find((l) => l.line_id === line.id);
         if (!state) return line;
+        const serverMetadata = state.metadata ?? null;
+        const currentMetadata = line.metadata ?? null;
+        const serverGeneratedAt = parseGeneratedAt(serverMetadata);
+        const currentGeneratedAt = parseGeneratedAt(currentMetadata);
+
+        const shouldAdoptServerData =
+          !!serverMetadata &&
+          (!currentGeneratedAt || !serverGeneratedAt || serverGeneratedAt >= currentGeneratedAt);
+
+        let nextMetadata = currentMetadata;
+        let nextRawOutputs = line.rawOutputs;
+        let nextFinalOutputs = line.finalOutputs;
+
+        if (shouldAdoptServerData) {
+          nextMetadata = serverMetadata;
+          nextRawOutputs = state.raw_outputs ? toFileResults(state.raw_outputs) : nextRawOutputs;
+          nextFinalOutputs = state.final_outputs ? toFileResults(state.final_outputs) : nextFinalOutputs;
+        } else if (!currentMetadata && serverMetadata) {
+          nextMetadata = serverMetadata;
+        } else if (!serverMetadata && !currentMetadata) {
+          nextRawOutputs = state.raw_outputs ? toFileResults(state.raw_outputs) : nextRawOutputs;
+          nextFinalOutputs = state.final_outputs ? toFileResults(state.final_outputs) : nextFinalOutputs;
+        }
+
         return {
           ...line,
           status: state.status,
           error: state.error ?? null,
-          rawOutputs: state.raw_outputs ?? line.rawOutputs,
-          finalOutputs: state.final_outputs ?? line.finalOutputs
+          metadata: nextMetadata,
+          rawOutputs: nextRawOutputs,
+          finalOutputs: nextFinalOutputs
         };
       })
     );
@@ -920,101 +1065,201 @@ export const VoKitPanel = () => {
                   </Table.Tr>
                   {lines.map((line) => {
                     const mp3 = line.finalOutputs?.find((file) => file.path.endsWith(".mp3"));
+                    const resolvedOptions = baseOptions && activeStyle
+                      ? applyStyleOverrides({ ...baseOptions }, activeStyle, line.tag)
+                      : baseOptions
+                      ? { ...baseOptions }
+                      : null;
+                    const defaultTemperature = resolvedOptions?.temperature ?? 0.75;
+                    const defaultExaggeration = resolvedOptions?.exaggeration ?? 0.5;
+                    const defaultCfgWeight = resolvedOptions?.cfg_weight ?? 1.0;
+                    const defaultNumCandidates = resolvedOptions?.num_candidates ?? 1;
+                    const defaultBypassWhisper = resolvedOptions?.bypass_whisper ?? false;
+
                     return (
-                      <Table.Tr key={line.id}>
-                        <Table.Td className={classes.textCol}>
-                          <Textarea
-                            autosize
-                            minRows={2}
-                            value={line.text}
-                            onChange={(event) => {
-                              const target = event.currentTarget;
-                              if (!target) return;
-                              const nextValue = target.value;
-                              setScriptLines((prev) =>
-                                prev.map((item) => (item.id === line.id ? { ...item, text: nextValue } : item))
-                              );
-                            }}
-                          />
-                        </Table.Td>
-                        <Table.Td className={classes.tagCol}>
-                          <Select
-                            value={line.tag ?? ""}
-                            onChange={(value) =>
-                              setScriptLines((prev) =>
-                                prev.map((item) => (item.id === line.id ? { ...item, tag: value || null } : item))
-                              )
-                            }
-                            data={tagOptions}
-                          />
-                        </Table.Td>
-                        <Table.Td className={classes.refCol}>
-                          <Stack gap={4}>
+                      <Fragment key={line.id}>
+                        <Table.Tr>
+                          <Table.Td className={classes.textCol}>
+                            <Textarea
+                              autosize
+                              minRows={2}
+                              value={line.text}
+                              onChange={(event) => {
+                                const target = event.currentTarget;
+                                if (!target) return;
+                                const nextValue = target.value;
+                                setScriptLines((prev) =>
+                                  prev.map((item) => (item.id === line.id ? { ...item, text: nextValue } : item))
+                                );
+                              }}
+                            />
+                          </Table.Td>
+                          <Table.Td className={classes.tagCol}>
                             <Select
-                              searchable
-                              clearable
-                              placeholder="Select"
-                              value={line.referenceAudio}
-                              data={activeStyle?.audio_files.map((file) => ({ value: file, label: file })) ?? []}
+                              value={line.tag ?? ""}
                               onChange={(value) =>
                                 setScriptLines((prev) =>
-                                  prev.map((item) =>
-                                    item.id === line.id
-                                      ? { ...item, referenceAudio: value, autoReference: value ? false : item.autoReference }
-                                      : item
-                                  )
+                                  prev.map((item) => (item.id === line.id ? { ...item, tag: value || null } : item))
                                 )
                               }
+                              data={tagOptions}
                             />
-                            <PlayButton url={buildReferenceUrl(line.referenceAudio ?? null)} onPlay={triggerPlayback} label="Preview" />
-                          </Stack>
-                        </Table.Td>
-                        <Table.Td className={classes.statusCol}>
-                          <StatusBadge status={line.status} error={line.error} />
-                        </Table.Td>
-                        <Table.Td className={classes.actionsCol}>
-                          <Stack gap={6}>
-                            <Button
-                              size="xs"
-                              color="violet"
-                              onClick={() => {
-                                setScriptLines((prev) =>
-                                  prev.map((item) => (item.id === line.id ? { ...item, status: "processing", error: null } : item))
-                                );
-                                singleLineMutation.mutate(line);
-                              }}
-                              loading={singleLineMutation.isLoading && singleLineMutation.variables?.id === line.id}
-                              disabled={!baseOptions}
-                            >
-                              Generate
-                            </Button>
-                            <Group gap="xs">
-                              <ActionIcon
-                                variant="light"
-                                size="md"
-                                radius="md"
-                                color="grape"
-                                disabled={!mp3?.url || line.status === "processing"}
-                                onClick={() => mp3?.url && triggerPlayback(mp3.url)}
+                          </Table.Td>
+                          <Table.Td className={classes.refCol}>
+                            <Stack gap={4}>
+                              <Select
+                                searchable
+                                clearable
+                                placeholder="Select"
+                                value={line.referenceAudio}
+                                data={activeStyle?.audio_files.map((file) => ({ value: file, label: file })) ?? []}
+                                onChange={(value) =>
+                                  setScriptLines((prev) =>
+                                    prev.map((item) =>
+                                      item.id === line.id
+                                        ? { ...item, referenceAudio: value, autoReference: value ? false : item.autoReference }
+                                        : item
+                                    )
+                                  )
+                                }
+                              />
+                              <PlayButton url={buildReferenceUrl(line.referenceAudio ?? null)} onPlay={triggerPlayback} label="Preview" />
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td className={classes.statusCol}>
+                            <StatusBadge status={line.status} error={line.error} />
+                          </Table.Td>
+                          <Table.Td className={classes.actionsCol}>
+                            <Stack gap={6}>
+                              <Button
+                                size="xs"
+                                color="violet"
+                                onClick={() => {
+                                  setScriptLines((prev) =>
+                                    prev.map((item) => (item.id === line.id ? { ...item, status: "processing", error: null } : item))
+                                  );
+                                  singleLineMutation.mutate(line);
+                                }}
+                                loading={singleLineMutation.isLoading && singleLineMutation.variables?.id === line.id}
+                                disabled={!baseOptions}
                               >
-                                <IconPlayerPlay size={16} />
-                              </ActionIcon>
-                              <ActionIcon
-                                variant="light"
-                                size="md"
-                                radius="md"
-                                color="grape"
-                                component="a"
-                                href={mp3?.url ?? undefined}
-                                download
-                                disabled={!mp3?.url || line.status === "processing"}
-                              >
-                                <IconDownload size={16} />
-                              </ActionIcon>
-                            </Group>
-                          </Stack>
-                        </Table.Td>
-                      </Table.Tr>
+                                Generate
+                              </Button>
+                              <Group gap="xs">
+                                <ActionIcon
+                                  variant="light"
+                                  size="md"
+                                  radius="md"
+                                  color="grape"
+                                  disabled={!mp3?.url || line.status === "processing"}
+                                  onClick={() => mp3?.url && triggerPlayback(mp3.url)}
+                                >
+                                  <IconPlayerPlay size={16} />
+                                </ActionIcon>
+                                <ActionIcon
+                                  variant="light"
+                                  size="md"
+                                  radius="md"
+                                  color="grape"
+                                  component="a"
+                                  href={mp3?.url ?? undefined}
+                                  download
+                                  disabled={!mp3?.url || line.status === "processing"}
+                                >
+                                  <IconDownload size={16} />
+                                </ActionIcon>
+                              </Group>
+                            </Stack>
+                          </Table.Td>
+                        </Table.Tr>
+                        <Table.Tr>
+                          <Table.Td colSpan={5}>
+                            <Accordion variant="separated" radius="md" defaultValue="__closed">
+                              <Accordion.Item value={`params-${line.id}`}>
+                                <Accordion.Control>Line settings</Accordion.Control>
+                                <Accordion.Panel>
+                                  <Stack gap="sm">
+                                    <Flex gap="md" wrap="wrap">
+                                      <NumberInput
+                                        label="Temperature"
+                                        value={line.temperatureOverride ?? undefined}
+                                        onChange={(val) =>
+                                          applyNumericOverride(line.id, "temperatureOverride", val, defaultTemperature)
+                                        }
+                                        precision={2}
+                                        step={0.05}
+                                        min={0}
+                                        max={2}
+                                        placeholder={defaultTemperature.toFixed(2)}
+                                        style={{ minWidth: 160 }}
+                                      />
+                                      <NumberInput
+                                        label="Exaggeration"
+                                        value={line.exaggerationOverride ?? undefined}
+                                        onChange={(val) =>
+                                          applyNumericOverride(line.id, "exaggerationOverride", val, defaultExaggeration)
+                                        }
+                                        precision={2}
+                                        step={0.05}
+                                        min={0}
+                                        max={2}
+                                        placeholder={defaultExaggeration.toFixed(2)}
+                                        style={{ minWidth: 160 }}
+                                      />
+                                      <NumberInput
+                                        label="CFG weight"
+                                        value={line.cfgWeightOverride ?? undefined}
+                                        onChange={(val) =>
+                                          applyNumericOverride(line.id, "cfgWeightOverride", val, defaultCfgWeight)
+                                        }
+                                        precision={2}
+                                        step={0.05}
+                                        min={0}
+                                        max={5}
+                                        placeholder={defaultCfgWeight.toFixed(2)}
+                                        style={{ minWidth: 160 }}
+                                      />
+                                      <NumberInput
+                                        label="Num candidates"
+                                        value={line.numCandidatesOverride ?? undefined}
+                                        onChange={(val) =>
+                                          applyNumericOverride(line.id, "numCandidatesOverride", val, defaultNumCandidates, {
+                                            integer: true
+                                          })
+                                        }
+                                        min={1}
+                                        step={1}
+                                        placeholder={defaultNumCandidates.toString()}
+                                        style={{ minWidth: 160 }}
+                                      />
+                                      <Switch
+                                        label="Bypass Whisper"
+                                        checked={line.bypassWhisperOverride ?? defaultBypassWhisper}
+                                        onChange={(event) =>
+                                          applyBooleanOverride(
+                                            line.id,
+                                            "bypassWhisperOverride",
+                                            event.currentTarget.checked,
+                                            defaultBypassWhisper
+                                          )
+                                        }
+                                      />
+                                    </Flex>
+                                    <Group justify="space-between">
+                                      <Text size="xs" c="dimmed">
+                                        Defaults – Temp {defaultTemperature.toFixed(2)}, Exag {defaultExaggeration.toFixed(2)}, CFG {defaultCfgWeight.toFixed(2)}, Candidates {defaultNumCandidates}, Bypass {defaultBypassWhisper ? "On" : "Off"}
+                                      </Text>
+                                      <Button size="xs" variant="subtle" onClick={() => resetLineOverrides(line.id)}>
+                                        Reset overrides
+                                      </Button>
+                                    </Group>
+                                  </Stack>
+                                </Accordion.Panel>
+                              </Accordion.Item>
+                            </Accordion>
+                          </Table.Td>
+                        </Table.Tr>
+                      </Fragment>
                     );
                   })}
                 </Fragment>

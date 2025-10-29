@@ -76,27 +76,27 @@
   "STOPSET": [
     { "text": "In Minutes, On %stationCalls%",
       "reference": "in_minutes_on" },
-    { "text": "Coming Up On %stationCalls%",
+    { "text": "Coming Up, On %stationCalls%",
       "reference": "coming_up_on"},
-    { "text": "Back To The Music On %stationCalls%",
+    { "text": "Back To The Music, On %stationCalls%",
       "reference": "back_to_the_music_on"}
   ],
   "CONTEST": [
-    { "text": "Listen To Win On %stationCalls%", "reference": "listen_to_win"},
-    { "text": "Win It On %stationCalls%", "reference": "win_it_on"},
+    { "text": "Listen To Win, On %stationCalls%", "reference": "listen_to_win"},
+    { "text": "Win It, On %stationCalls%", "reference": "win_it_on"},
     { "text": "Call Now To Win", "reference": "call_now_to_win"},
     { "text": "%phoneNumber%", "reference": "phone_number"}
   ],
   "CONCERT": [
     { "text": "Win Tickets On %stationCalls%", "reference": "win_tickets_on"},
-    { "text": "See Her Live From %stationCalls%", "reference": "see_her_live"},
-    { "text": "See Him Live From %stationCalls%", "reference": "see_him_live"},
-    { "text": "See Them Live From %stationCalls%", "reference": "see_them_live"}
+    { "text": "See Her Live, From %stationCalls%", "reference": "see_her_live"},
+    { "text": "See Him Live, From %stationCalls%", "reference": "see_him_live"},
+    { "text": "See Them Live, From %stationCalls%", "reference": "see_them_live"}
   ],
   "NEW MUSIC": [
     { "text": "Here’s What’s New On %stationCalls%", "reference": "heres_whats_new_on"},
-    { "text": "New Music On %stationCalls%", "reference": "new_music_on"},
-    { "text": "New Music First On %stationCalls%", "reference": "new_music_first_on"}
+    { "text": "New Music, On %stationCalls%", "reference": "new_music_on"},
+    { "text": "New Music First, On %stationCalls%", "reference": "new_music_first_on"}
   ],
   "HOLIDAYS": [
     {"text": "Happy Holidays", "reference": "happy_holidays"},

@@ -113,6 +113,7 @@ export interface BatchLineStatus {
   error?: string | null;
   raw_outputs?: FileResult[] | null;
   final_outputs?: FileResult[] | null;
+  metadata?: Record<string, string> | null;
 }
 
 export interface BatchJobStatus {

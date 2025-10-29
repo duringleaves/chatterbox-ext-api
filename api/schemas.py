@@ -250,6 +250,7 @@ class BatchLineStatus(BaseModel):
     error: Optional[str] = None
     raw_outputs: Optional[List[FileResult]] = None
     final_outputs: Optional[List[FileResult]] = None
+    metadata: Optional[Dict[str, str]] = None
 
 
 class BatchJobStatus(BaseModel):

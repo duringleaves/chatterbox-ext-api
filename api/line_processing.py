@@ -1,10 +1,12 @@
 """Utilities for single-line TTS generation and optional cloning."""
 from __future__ import annotations
 
+import datetime
 import math
 import random
 import re
 import unicodedata
+import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -321,6 +323,11 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
         metadata["tts_settings_overrides"] = "; ".join(
             f"{key}:{vals['requested']:.3f}->{vals['config']:.3f}" for key, vals in overrides_applied.items()
         )
+
+    generation_id = uuid.uuid4().hex
+    generated_at = datetime.datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
+    metadata["generation_id"] = generation_id
+    metadata["generated_at"] = generated_at
 
     if payload.clone_voice:
         metadata.update({

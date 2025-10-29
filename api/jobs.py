@@ -247,6 +247,7 @@ class JobManager:
                     error=state.error,
                     raw_outputs=state.result.raw_outputs if state.result else None,
                     final_outputs=state.result.final_outputs if state.result else None,
+                    metadata=state.result.metadata if state.result else None,
                 )
             )
         progress = completed / total if total else 0.0
