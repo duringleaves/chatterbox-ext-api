@@ -162,7 +162,7 @@
   "FACEBOOK": [
     {
       "text": "%facebook%",
-      "reference": "social"
+      "reference": "at_social"
     },
     {
       "text": "Like Us On Facebook At %facebook%",
@@ -176,11 +176,11 @@
   "TWITTER": [
     {
       "text": "%twitter%",
-      "reference": "social"
+      "reference": "at_social"
     },
     {
       "text": "Follow Us On Twitter At %twitter%",
-      "reference": "follow_us_on"
+      "reference": "follow_us_social"
     },
     {
       "text": "Tweet Us At %twitter%",
@@ -190,11 +190,11 @@
   "INSTAGRAM": [
     {
       "text": "%instagram%",
-      "reference": "instagram"
+      "reference": "at_social"
     },
     {
       "text": "Follow Us On Instagram At %instagram%",
-      "reference": "follow_us_on_instagram"
+      "reference": "follow_us_social"
     }
   ],
   "MOBILE APP": [

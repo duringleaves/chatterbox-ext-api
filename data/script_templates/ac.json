@@ -56,13 +56,13 @@
     { "text": "Streaming Live At %website%", "reference": "streaming_live_at" }
   ],
   "FACEBOOK": [
-    { "text": "%facebook%", "reference": "social" },
+    { "text": "%facebook%", "reference": "at_social" },
     { "text": "Like Us On Facebook At %facebook%", "reference": "follow_us_social" },
     { "text": "Friend Us At %facebook%", "reference": "friend_us_social" }
   ],
   "TWITTER": [
-    { "text": "%twitter%", "reference": "social" },
-    { "text": "Follow Us On X At %twitter%", "reference": "follow_us_socialn" },
+    { "text": "%twitter%", "reference": "at_social" },
+    { "text": "Follow Us On X At %twitter%", "reference": "follow_us_social" },
     { "text": "Tweet Us At %twitter%", "reference": "tweet_us_social" }
   ],
   "MOBILE APP": [

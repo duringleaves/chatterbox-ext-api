@@ -170,7 +170,7 @@
   "FACEBOOK": [
     {
       "text": "%facebook%",
-      "reference": "social"
+      "reference": "at_social"
     },
     {
       "text": "Like Us On Facebook At %facebook%",
@@ -184,11 +184,11 @@
   "TWITTER": [
     {
       "text": "%twitter%",
-      "reference": "social"
+      "reference": "at_social"
     },
     {
       "text": "Follow Us On X At %twitter%",
-      "reference": "follow_us_socialn"
+      "reference": "follow_us_social"
     },
     {
       "text": "Tweet Us At %twitter%",

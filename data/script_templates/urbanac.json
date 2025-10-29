@@ -176,15 +176,15 @@
   "SOCIAL MEDIA TAGS": [
     {
       "text": "%socialTag1%",
-      "reference": "social_tag"
+      "reference": "at_social"
     },
     {
       "text": "%socialTag2%",
-      "reference": "social_tag"
+      "reference": "at_social"
     },
     {
       "text": "%socialTag3%",
-      "reference": "social_tag"
+      "reference": "at_social"
     }
   ],
   "MOBILE APP": [
