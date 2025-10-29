@@ -60,7 +60,7 @@
   ],
   "FACEBOOK": [
     { "text": "%facebook%", "reference": "at_social" },
-    { "text": "Like Us On Facebook At %facebook%", "reference": "follow_us_social" },
+    { "text": "Like Us On Facebook At %facebook%", "reference": "like_us_social" },
     { "text": "Friend Us At %facebook%", "reference": "friend_us_social" }
   ],
   "TWITTER": [
