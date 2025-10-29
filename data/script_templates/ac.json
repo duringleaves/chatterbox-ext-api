@@ -63,7 +63,7 @@
   "TWITTER": [
     { "text": "%twitter%", "reference": "social" },
     { "text": "Follow Us On X At %twitter%", "reference": "follow_us_socialn" },
-    { "text": "Tweet Us At %twitter%", "reference": "friend_us_social" }
+    { "text": "Tweet Us At %twitter%", "reference": "tweet_us_social" }
   ],
   "MOBILE APP": [
     { "text": "%mobileApp%", "reference": "app" },

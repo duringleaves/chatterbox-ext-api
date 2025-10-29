@@ -55,6 +55,10 @@
   ],
   "MORNING SHOW": [
     {
+      "text": "%morningShow%",
+      "reference": "show"
+    },
+    {
       "text": "This is %morningShow%",
       "reference": "this_is_show"
     },
@@ -65,10 +69,6 @@
     {
       "text": "You\u2019re Listening To %morningShow%",
       "reference": "youre_listening_show"
-    },
-    {
-      "text": "%morningShow%",
-      "reference": "show"
     }
   ],
   "MIDDAYS": [
@@ -184,7 +184,7 @@
     },
     {
       "text": "Tweet Us At %twitter%",
-      "reference": "friend_us_social"
+      "reference": "tweet_us_social"
     }
   ],
   "INSTAGRAM": [
