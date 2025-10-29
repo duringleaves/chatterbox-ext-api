@@ -50,6 +50,7 @@ export interface TTSOptions {
   sound_words?: { pattern: string; replacement?: string }[] | null;
   use_faster_whisper: boolean;
   generate_separate_audio_files: boolean;
+  force_reference_defaults: boolean;
 }
 
 export interface StationFormatDescriptor {

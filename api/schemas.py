@@ -106,6 +106,7 @@ class TTSOptions(BaseModel):
     sound_words: Optional[List[SoundWordReplacement]] = None
     sound_words_text: Optional[str] = None
     generate_separate_audio_files: bool = False
+    force_reference_defaults: bool = True
 
     @validator("normalize_method")
     def validate_normalize_method(cls, value: str) -> str:

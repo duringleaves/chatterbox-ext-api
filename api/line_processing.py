@@ -146,6 +146,8 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
         payload.tag,
     )
 
+    apply_reference_defaults = bool(getattr(options, "force_reference_defaults", True))
+
     initial_settings = {
         "temperature": options.temperature,
         "cfg_weight": options.cfg_weight,
@@ -161,7 +163,7 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
             expected_value = float(value)
             expected_settings[key] = expected_value
             current_value = float(getattr(options, key))
-            if not math.isclose(current_value, expected_value, rel_tol=1e-6, abs_tol=1e-6):
+            if apply_reference_defaults and not math.isclose(current_value, expected_value, rel_tol=1e-6, abs_tol=1e-6):
                 overrides_applied[key] = {
                     "requested": current_value,
                     "config": expected_value,
@@ -297,6 +299,7 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
         "reference_style": payload.reference_style,
         "reference_audio": payload.reference_audio,
         "tag": payload.tag or "",
+        "reference_defaults_applied": "true" if apply_reference_defaults else "false",
     }
 
     metadata.update(

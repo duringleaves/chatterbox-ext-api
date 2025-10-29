@@ -62,7 +62,8 @@ const defaultsToOptions = (defaults: Record<string, any>): TTSOptions => ({
   sound_words_field: defaults.sound_words_field ?? "",
   sound_words: [],
   use_faster_whisper: defaults.use_faster_whisper_checkbox ?? true,
-  generate_separate_audio_files: defaults.separate_files_checkbox ?? false
+  generate_separate_audio_files: defaults.separate_files_checkbox ?? false,
+  force_reference_defaults: true
 });
 
 const AUDIO_EXTENSIONS = [".wav", ".mp3", ".flac", ".ogg", ".m4a"];

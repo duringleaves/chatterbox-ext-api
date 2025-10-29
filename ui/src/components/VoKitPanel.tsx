@@ -195,7 +195,8 @@ const defaultsToOptions = (defaults: Record<string, any>): TTSOptions => ({
   sound_words_field: defaults.sound_words_field ?? "",
   sound_words: [],
   use_faster_whisper: defaults.use_faster_whisper_checkbox ?? true,
-  generate_separate_audio_files: defaults.separate_files_checkbox ?? false
+  generate_separate_audio_files: defaults.separate_files_checkbox ?? false,
+  force_reference_defaults: true
 });
 
 const applyStyleOverrides = (
@@ -626,6 +627,13 @@ export const VoKitPanel = () => {
       if (line.bypassWhisperOverride != null) {
         options.bypass_whisper = line.bypassWhisperOverride;
       }
+      const hasManualOverrides =
+        line.temperatureOverride != null ||
+        line.exaggerationOverride != null ||
+        line.cfgWeightOverride != null ||
+        line.numCandidatesOverride != null ||
+        line.bypassWhisperOverride != null;
+      options.force_reference_defaults = hasManualOverrides ? false : baseOptions.force_reference_defaults;
       const queuePosition = scriptLines.findIndex((item) => item.id === line.id) + 1;
       const repeatedText = takesPerLine > 1 ? Array.from({ length: takesPerLine }, () => line.text).join("\n") : line.text;
       const payload = {
@@ -705,6 +713,13 @@ export const VoKitPanel = () => {
         if (line.bypassWhisperOverride != null) {
           options.bypass_whisper = line.bypassWhisperOverride;
         }
+        const hasManualOverrides =
+          line.temperatureOverride != null ||
+          line.exaggerationOverride != null ||
+          line.cfgWeightOverride != null ||
+          line.numCandidatesOverride != null ||
+          line.bypassWhisperOverride != null;
+        options.force_reference_defaults = hasManualOverrides ? false : baseOptions.force_reference_defaults;
         if (!line.referenceAudio) {
           throw new Error(`Line ${line.id} is missing reference audio`);
         }
