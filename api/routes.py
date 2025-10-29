@@ -236,7 +236,8 @@ def list_whisper_models() -> List[dict]:
 
 @protected.post("/lines/generate", response_model=LineGenerationResponse)
 async def generate_line(payload: LineGenerationRequest) -> LineGenerationResponse:
-    response = await run_in_threadpool(generate_line_audio, payload)
+    async with GENERATION_LOCK:
+        response = await run_in_threadpool(generate_line_audio, payload)
     zip_file = await job_manager.apply_line_update(payload, response)
     if zip_file:
         return response.model_copy(update={"zip_file": zip_file})

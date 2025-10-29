@@ -15,7 +15,7 @@ from typing import Dict, Optional
 from fastapi import HTTPException
 from pydub import AudioSegment
 
-from .core import BASE_DIR, OUTPUT_DIR
+from .core import BASE_DIR, OUTPUT_DIR, GENERATION_LOCK
 from .line_processing import generate_line_audio
 from .schemas import (
     BatchCreateRequest,
@@ -108,7 +108,8 @@ class JobManager:
                 continue
             line_state.status = LineStatus.processing
             try:
-                response = await asyncio.to_thread(generate_line_audio, line_state.payload)
+                async with GENERATION_LOCK:
+                    response = await asyncio.to_thread(generate_line_audio, line_state.payload)
                 line_state.result = response
                 line_state.status = LineStatus.completed
                 self._persist_line_outputs(job, line_id, response)
