@@ -5,7 +5,7 @@ import base64
 import os
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 from fastapi import HTTPException
@@ -159,13 +159,23 @@ class TTSResponse(BaseModel):
 
 class VoiceConversionRequest(BaseModel):
     input_audio: Base64File
-    target_voice_audio: Base64File
-    chunk_seconds: float = 60.0
-    overlap_seconds: float = 0.1
-    disable_watermark: bool = True
-    pitch_shift: int = 0
-    export_formats: List[str] = Field(default_factory=lambda: ["wav"])
+    voice_id: str
+    model_id: str = "eleven_multilingual_sts_v2"
+    voice_settings: Optional[Dict[str, Any]] = None
+    export_formats: List[str] = Field(default_factory=lambda: ["mp3", "wav"])
     return_audio_base64: bool = False
+
+    @validator("voice_id")
+    def validate_voice_id(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("voice_id must be provided")
+        return value.strip()
+
+    @validator("model_id")
+    def validate_model_id(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("model_id must be provided")
+        return value.strip()
 
     @validator("export_formats", each_item=True)
     def validate_vc_export_format(cls, value: str) -> str:
@@ -228,6 +238,8 @@ class LineGenerationRequest(BaseModel):
     clone_voice: Optional[str] = None
     clone_audio: Optional[str] = None
     clone_pitch: float = Field(default=0.0)
+    clone_voice_settings: Optional[Dict[str, Any]] = None
+    clone_model: Optional[str] = None
     job_id: Optional[str] = None
     queue_position: Optional[int] = None
 

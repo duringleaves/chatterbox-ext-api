@@ -11,6 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     api_key: str = Field(..., alias="CHATTERBOX_API_KEY")
     openai_api_key: Optional[str] = Field(default=None, alias="OPENAI_API_KEY")
+    elevenlabs_api_key: Optional[str] = Field(default=None, alias="ELEVENLABS_API_KEY")
     data_dir: Path = Field(default=Path("data"), alias="CHATTERBOX_DATA_DIR")
     output_dir: Path = Field(default=Path("output"), alias="CHATTERBOX_OUTPUT_DIR")
     temp_dir: Path = Field(default=Path("api_temp"), alias="CHATTERBOX_TEMP_DIR")

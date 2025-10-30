@@ -227,17 +227,48 @@ def get_reference_audio_path(voice: str, style: str, filename: str) -> Path:
     return _ensure_inside(base, path)
 
 
-def list_clone_voices() -> List[Dict[str, str]]:
-    base = settings.resolved_data_dir / "clone_voices"
-    result = []
-    for voice_dir in _safe_listdir(base):
-        if voice_dir.is_dir():
-            files = [p.name for p in _safe_listdir(voice_dir) if p.suffix.lower() in {".wav", ".mp3", ".flac"}]
+def _elevenlabs_clone_dir() -> Path:
+    return settings.resolved_data_dir / "clone_voices" / "elevenlabs"
+
+
+def list_clone_voices() -> List[Dict[str, Any]]:
+    base = _elevenlabs_clone_dir()
+    if not base.exists():
+        raise HTTPException(status_code=404, detail=f"ElevenLabs voices directory not found: {base}")
+
+    result: List[Dict[str, Any]] = []
+    for voice_file in _safe_listdir(base):
+        if voice_file.suffix.lower() != ".json":
+            continue
+        try:
+            content = json.loads(voice_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        for key, payload in content.items():
+            voice_id = payload.get("voice_id")
+            if not voice_id:
+                continue
+            name = payload.get("name") or key
+            description = payload.get("description") or ""
+            voice_settings = payload.get("voice_settings") or {}
             result.append({
-                "name": voice_dir.name,
-                "files": files,
+                "id": key,
+                "name": name,
+                "description": description,
+                "voice_id": voice_id,
+                "voice_settings": voice_settings,
+                "source_file": str(_relative_to_data_root(voice_file)),
             })
+    result.sort(key=lambda item: item["name"].lower())
     return result
+
+
+def get_clone_voice_config(voice_key: str) -> Dict[str, Any]:
+    voices = list_clone_voices()
+    for voice in voices:
+        if voice["id"] == voice_key:
+            return voice
+    raise HTTPException(status_code=404, detail="Clone voice not found")
 
 
 def get_clone_voice_path(voice: str, filename: str) -> Path:

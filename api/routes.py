@@ -5,8 +5,6 @@ import uuid
 from pathlib import Path
 from types import SimpleNamespace
 from typing import List
-
-import soundfile as sf
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydub import AudioSegment
@@ -21,7 +19,6 @@ from .core import (
     LOGGER,
     OUTPUT_DIR,
     TEMP_DIR,
-    chatter_voice_conversion,
     generate_batch_tts,
     load_settings,
     save_settings,
@@ -55,6 +52,7 @@ from .schemas import (
     VoiceConversionResponse,
 )
 from .services.text_processing import TextProcessingError, text_preprocessor
+from .services.elevenlabs_client import detect_audio_extension, generate_clone_bytes
 from .utils import (
     build_sound_words_text,
     collect_settings_files,
@@ -177,47 +175,35 @@ async def convert_voice(request: VoiceConversionRequest) -> VoiceConversionRespo
     temp_paths: List[Path] = []
     try:
         input_path = request.input_audio.write_to(TEMP_DIR)
-        target_path = request.target_voice_audio.write_to(TEMP_DIR)
-        temp_paths.extend([input_path, target_path])
+        temp_paths.append(input_path)
 
-        def _run_conversion() -> tuple[int, List[Path]]:
-            sr, audio = chatter_voice_conversion(
-                str(input_path),
-                str(target_path),
-                chunk_sec=request.chunk_seconds,
-                overlap_sec=request.overlap_seconds,
-                disable_watermark=request.disable_watermark,
-                pitch_shift=request.pitch_shift,
+        def _run_conversion() -> List[Path]:
+            clone_bytes = generate_clone_bytes(
+                source_path=input_path,
+                voice_id=request.voice_id,
+                model_id=request.model_id,
+                voice_settings=request.voice_settings,
             )
-
+            ext = detect_audio_extension(clone_bytes)
             timestamp = uuid.uuid4().hex
             base_name = f"vc_{timestamp}"
-            wav_path = OUTPUT_DIR / f"{base_name}.wav"
-            sf.write(str(wav_path), audio, sr)
+            primary_path = OUTPUT_DIR / f"{base_name}{ext}"
+            primary_path.write_bytes(clone_bytes)
 
-            generated_paths = [wav_path]
-            if "wav" not in request.export_formats:
-                generated_paths = []
-
+            paths = [primary_path]
+            primary_format = ext.lstrip(".").lower()
             for fmt in request.export_formats:
-                if fmt == "wav":
-                    generated_paths.append(wav_path)
-                else:
-                    segment = AudioSegment.from_wav(wav_path)
-                    extra_path = OUTPUT_DIR / f"{base_name}.{fmt}"
-                    export_kwargs = {"bitrate": "320k"} if fmt == "mp3" else {}
-                    segment.export(extra_path, format=fmt, **export_kwargs)
-                    generated_paths.append(extra_path)
+                fmt = fmt.lower()
+                if fmt == primary_format:
+                    continue
+                converted_path = primary_path.with_suffix(f".{fmt}")
+                segment = AudioSegment.from_file(primary_path, format=primary_format or None)
+                export_kwargs = {"bitrate": "320k"} if fmt == "mp3" else {}
+                segment.export(converted_path, format=fmt, **export_kwargs)
+                paths.append(converted_path)
+            return paths
 
-            if "wav" not in request.export_formats:
-                try:
-                    wav_path.unlink()
-                except Exception:
-                    pass
-
-            return sr, generated_paths
-
-        _, generated_paths = await run_in_threadpool(_run_conversion)
+        generated_paths = await run_in_threadpool(_run_conversion)
         outputs = [to_file_result(path, include_base64=request.return_audio_base64) for path in generated_paths]
         return VoiceConversionResponse(outputs=outputs)
     finally:

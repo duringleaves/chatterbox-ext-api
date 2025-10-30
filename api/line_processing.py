@@ -2,27 +2,21 @@
 from __future__ import annotations
 
 import datetime
+import json
 import math
-import random
 import re
 import unicodedata
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-
-import soundfile as sf
+from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException
 from pydub import AudioSegment
 
 from .core import LOGGER, generate_batch_tts
-from .data_service import (
-    get_clone_voice_path,
-    get_reference_audio_path,
-    list_clone_voices,
-    resolve_chatterbox_settings,
-)
+from .data_service import get_clone_voice_config, get_reference_audio_path, resolve_chatterbox_settings
 from .schemas import LineGenerationRequest, LineGenerationResponse, TTSOptions
 from .utils import build_sound_words_text, resolve_whisper_label, to_file_result
+from .services.elevenlabs_client import detect_audio_extension, generate_clone_bytes
 
 
 def _tts_options_to_args(options: TTSOptions, sound_words_field: str) -> Tuple:
@@ -240,30 +234,54 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
 
     final_files: List[Path] = []
 
-    clone_file = payload.clone_audio
+    clone_config: Optional[Dict[str, Any]] = None
+    applied_clone_settings: Optional[Dict[str, Any]] = None
+    clone_model_id: Optional[str] = None
+
     if payload.clone_voice:
-        available_clones = {entry["name"]: entry["files"] for entry in list_clone_voices()}
-        if payload.clone_voice not in available_clones:
-            raise HTTPException(status_code=404, detail="Clone voice not found")
-        if not clone_file:
-            clone_file = random.choice(available_clones[payload.clone_voice])
-        clone_path = get_clone_voice_path(payload.clone_voice, clone_file)
+        clone_config = get_clone_voice_config(payload.clone_voice)
+        default_settings = clone_config.get("voice_settings")
+        base_settings: Dict[str, Any] = default_settings if isinstance(default_settings, dict) else {}
+        applied_clone_settings = dict(base_settings)
+        if payload.clone_voice_settings:
+            overrides = {
+                key: value
+                for key, value in payload.clone_voice_settings.items()
+                if value is not None
+            }
+            applied_clone_settings.update(overrides)
+        clone_model_id = payload.clone_model or "eleven_multilingual_sts_v2"
 
-        from chatterbox.service import voice_conversion  # local import to avoid circular
-
-        sr, audio = voice_conversion(
-            str(base_wav),
-            str(clone_path),
-            pitch_shift=int(payload.clone_pitch or 0),
+        clone_bytes = generate_clone_bytes(
+            source_path=base_wav,
+            voice_id=clone_config["voice_id"],
+            model_id=clone_model_id,
+            voice_settings=applied_clone_settings or None,
         )
-        clone_wav = base_wav.with_name(f"{base_wav.stem}_clone.wav")
-        sf.write(clone_wav, audio, sr)
-        final_files.append(clone_wav)
 
-        mp3_path = clone_wav.with_suffix(".mp3")
-        segment = AudioSegment.from_wav(clone_wav)
-        segment.export(mp3_path, format="mp3", bitrate="320k")
-        final_files.append(mp3_path)
+        extension = detect_audio_extension(clone_bytes)
+        clone_primary = base_wav.with_name(f"{base_wav.stem}_clone{extension}")
+        clone_primary.write_bytes(clone_bytes)
+
+        generated_paths = [clone_primary]
+
+        # Ensure both WAV and MP3 variants exist for compatibility with downstream tooling.
+        target_formats = {fmt.lower() for fmt in ["wav", "mp3"]}
+        current_ext = extension.lstrip(".").lower()
+        if current_ext in target_formats:
+            target_formats.remove(current_ext)
+
+        for fmt in target_formats:
+            converted_path = clone_primary.with_suffix(f".{fmt}")
+            try:
+                segment = AudioSegment.from_file(clone_primary, format=current_ext or None)
+                export_kwargs = {"bitrate": "320k"} if fmt == "mp3" else {}
+                segment.export(converted_path, format=fmt, **export_kwargs)
+                generated_paths.append(converted_path)
+            except Exception as exc:
+                LOGGER.warning("Failed to convert ElevenLabs clone to %s: %s", fmt, exc)
+
+        final_files.extend(generated_paths)
         # keep raw wav so UI can inspect waveform
         final_files.append(base_wav)
     else:
@@ -332,10 +350,13 @@ def generate_line_audio(payload: LineGenerationRequest) -> LineGenerationRespons
     metadata["generation_id"] = generation_id
     metadata["generated_at"] = generated_at
 
-    if payload.clone_voice:
+    if payload.clone_voice and clone_config:
         metadata.update({
             "clone_voice": payload.clone_voice,
-            "clone_audio": clone_file,
+            "clone_voice_name": clone_config.get("name", ""),
+            "clone_voice_id": clone_config.get("voice_id", ""),
+            "clone_model": clone_model_id or "",
+            "clone_voice_settings": json.dumps(applied_clone_settings or {}, sort_keys=True),
         })
 
     return LineGenerationResponse(

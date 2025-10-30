@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Badge,
@@ -8,12 +8,14 @@ import {
   Divider,
   Group,
   Loader,
+  NumberInput,
   Select,
   Slider,
   Stack,
   Text,
   Textarea,
-  Title
+  Title,
+  Switch
 } from "@mantine/core";
 import { IconDownload, IconPlayerPlay } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -145,7 +147,8 @@ export const TextToSpeechPanel = () => {
   const [selectedReferenceAudio, setSelectedReferenceAudio] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string>("");
   const [cloneVoice, setCloneVoice] = useState<string | null>(null);
-  const [cloneSample, setCloneSample] = useState<string | null>(null);
+  const [cloneVoiceSettings, setCloneVoiceSettings] = useState<Record<string, any> | null>(null);
+  const [cloneModel, setCloneModel] = useState<string>("eleven_multilingual_sts_v2");
   const [takesPerLine, setTakesPerLine] = useState<number>(1);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -175,12 +178,20 @@ export const TextToSpeechPanel = () => {
       label: file
     })) ?? [];
 
-  const cloneVoiceOptions = cloneVoices.map((voice) => ({ value: voice.name, label: voice.name }));
-  const cloneSampleOptions =
-    cloneVoices.find((voice) => voice.name === cloneVoice)?.files.map((file) => ({
-      value: file,
-      label: file
-    })) ?? [];
+  const cloneVoiceOptions = cloneVoices.map((voice) => ({ value: voice.id, label: voice.name }));
+  const selectedCloneVoice = cloneVoices.find((voice) => voice.id === cloneVoice) ?? null;
+  const cloneModelOptions = useMemo(
+    () => [
+      { value: "eleven_multilingual_sts_v2", label: "Multilingual" },
+      { value: "eleven_english_sts_v2", label: "English" }
+    ],
+    []
+  );
+  const cloneSettingEntries = useMemo(() => {
+    if (!selectedCloneVoice) return [];
+    const source = cloneVoiceSettings ?? selectedCloneVoice.voice_settings ?? {};
+    return Object.entries(source).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [selectedCloneVoice, cloneVoiceSettings]);
 
   useEffect(() => {
     if (!selectedVoice && referenceVoices.length > 0) {
@@ -213,9 +224,37 @@ export const TextToSpeechPanel = () => {
   }, [activeStyle]);
 
   useEffect(() => {
-    if (cloneVoice) return;
-    setCloneSample(null);
-  }, [cloneVoice]);
+    if (!cloneVoice) {
+      setCloneVoiceSettings(null);
+      setCloneModel("eleven_multilingual_sts_v2");
+      return;
+    }
+    const voice = cloneVoices.find((entry) => entry.id === cloneVoice);
+    if (!voice) {
+      setCloneVoiceSettings(null);
+      return;
+    }
+    setCloneVoiceSettings({ ...(voice.voice_settings ?? {}) });
+  }, [cloneVoice, cloneVoices]);
+
+  const handleCloneSettingChange = useCallback(
+    (key: string, value: number | boolean) => {
+      setCloneVoiceSettings((prev) => {
+        const base =
+          prev ?? { ...(selectedCloneVoice?.voice_settings ?? {}) };
+        return { ...base, [key]: value };
+      });
+    },
+    [selectedCloneVoice]
+  );
+
+  const resetCloneSettings = useCallback(() => {
+    if (!selectedCloneVoice) {
+      setCloneVoiceSettings(null);
+      return;
+    }
+    setCloneVoiceSettings({ ...(selectedCloneVoice.voice_settings ?? {}) });
+  }, [selectedCloneVoice]);
 
   useEffect(() => {
     if (!tagOptions.some((option) => option.value === selectedTag)) {
@@ -268,6 +307,10 @@ export const TextToSpeechPanel = () => {
       options.sound_words_field = baseOptions.sound_words_field ?? "";
       options.export_formats = ["wav"];
       const repeatedText = takesPerLine > 1 ? Array.from({ length: takesPerLine }, () => trimmed).join("\n") : trimmed;
+      const settingsForClone =
+        cloneVoice && selectedCloneVoice
+          ? cloneVoiceSettings ?? selectedCloneVoice.voice_settings ?? undefined
+          : undefined;
       const payload = {
         line_id: `tts-${Date.now()}`,
         text: repeatedText,
@@ -277,7 +320,8 @@ export const TextToSpeechPanel = () => {
         reference_audio: selectedReferenceAudio,
         tag: selectedTag || undefined,
         clone_voice: cloneVoice ?? undefined,
-        clone_audio: cloneSample ?? undefined,
+        clone_voice_settings: settingsForClone,
+        clone_model: cloneVoice ? cloneModel : undefined,
         clone_pitch: 0,
         options
       };
@@ -436,23 +480,82 @@ export const TextToSpeechPanel = () => {
           </Group>
           <Collapse in={cloneOptionsOpen}>
             <Stack gap="md">
-              <Group grow>
-                <Select
-                  label="Clone voice"
-                  placeholder="None"
-                  data={[{ value: "", label: "None" }, ...cloneVoiceOptions]}
-                  value={cloneVoice ?? ""}
-                  onChange={(value) => setCloneVoice(value || null)}
-                />
-                <Select
-                  label="Clone sample"
-                  placeholder="Auto"
-                  data={cloneSampleOptions}
-                  value={cloneSample}
-                  onChange={setCloneSample}
-                  disabled={!cloneVoice}
-                />
-              </Group>
+              <Select
+                label="Clone voice"
+                placeholder="None"
+                data={[{ value: "", label: "None" }, ...cloneVoiceOptions]}
+                value={cloneVoice ?? ""}
+                onChange={(value) => setCloneVoice(value || null)}
+                nothingFound="No clone voices"
+              />
+              {!cloneVoice && (
+                <Text size="sm" c="dimmed">
+                  Select an ElevenLabs voice to enable cloning.
+                </Text>
+              )}
+              {selectedCloneVoice?.description && (
+                <Text size="sm" c="dimmed">
+                  {selectedCloneVoice.description}
+                </Text>
+              )}
+              <Select
+                label="Model"
+                placeholder="Choose ElevenLabs model"
+                data={cloneModelOptions}
+                value={cloneModel}
+                onChange={(value) => setCloneModel(value ?? "eleven_multilingual_sts_v2")}
+                disabled={!cloneVoice}
+              />
+              {cloneVoice && (
+                <Stack gap="xs">
+                  <Group justify="space-between" align="center">
+                    <Text size="sm" fw={500}>
+                      Voice settings
+                    </Text>
+                    <Button variant="subtle" size="xs" onClick={resetCloneSettings} disabled={!selectedCloneVoice}>
+                      Reset to defaults
+                    </Button>
+                  </Group>
+                  {cloneSettingEntries.length > 0 ? (
+                    cloneSettingEntries.map(([key, value]) => {
+                      if (typeof value === "boolean") {
+                        return (
+                          <Switch
+                            key={key}
+                            label={key}
+                            checked={Boolean(value)}
+                            onChange={(event) => handleCloneSettingChange(key, event.currentTarget.checked)}
+                          />
+                        );
+                      }
+                      if (typeof value === "number") {
+                        return (
+                          <NumberInput
+                            key={key}
+                            label={key}
+                            value={value}
+                            onChange={(val) => {
+                              const numeric = typeof val === "number" ? val : Number(val);
+                              if (!Number.isNaN(numeric)) handleCloneSettingChange(key, numeric);
+                            }}
+                            step={0.05}
+                            precision={2}
+                          />
+                        );
+                      }
+                      return (
+                        <Text key={key} size="sm">
+                          {key}: {String(value)}
+                        </Text>
+                      );
+                    })
+                  ) : (
+                    <Text size="sm" c="dimmed">
+                      This voice has no adjustable settings.
+                    </Text>
+                  )}
+                </Stack>
+              )}
             </Stack>
           </Collapse>
         </Stack>

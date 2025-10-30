@@ -11,6 +11,8 @@ export interface LineGenerationRequest {
   clone_voice?: string | null;
   clone_audio?: string | null;
   clone_pitch?: number;
+  clone_voice_settings?: Record<string, any> | null;
+  clone_model?: string | null;
   job_id?: string | null;
   queue_position?: number | null;
 }
@@ -81,8 +83,12 @@ export interface ReferenceVoice {
 }
 
 export interface CloneVoice {
+  id: string;
   name: string;
-  files: string[];
+  description?: string | null;
+  voice_id: string;
+  voice_settings: Record<string, any>;
+  source_file?: string;
 }
 
 export interface AnalyzeResponse {

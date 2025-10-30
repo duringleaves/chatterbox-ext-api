@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -6,19 +6,20 @@ import {
   FileInput,
   Group,
   Loader,
+  NumberInput,
   Select,
   Space,
   Stack,
   Table,
   Text,
-  Title
+  Title,
+  Switch
 } from "@mantine/core";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { CloneVoice, FileResult } from "@/lib/types";
-import { IconAlertCircle, IconMicrophone, IconPlayerPlay, IconUpload } from "@tabler/icons-react";
+import { IconAlertCircle, IconMicrophone, IconUpload } from "@tabler/icons-react";
 import { AudioRecorder } from "./AudioRecorder";
-import { useApiKey } from "@/hooks/useApiKey";
 
 const toBase64 = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -38,33 +39,6 @@ const toBase64 = (file: File) =>
 
 type VoiceCloneOutput = FileResult & { renderedAt: number };
 
-const buildCloneUrl = (voice: string | null, filename: string | null, apiKey?: string | null) => {
-  if (!voice || !filename) return undefined;
-  const base = `/voices/clone/${encodeURIComponent(voice)}/${encodeURIComponent(filename)}`;
-  if (!apiKey) return base;
-  return `${base}?api_key=${encodeURIComponent(apiKey)}`;
-};
-
-const PlayButton = ({
-  url,
-  onPlay,
-  disabled = false
-}: {
-  url?: string;
-  onPlay?: (url: string) => void;
-  disabled?: boolean;
-}) => (
-  <Button
-    size="xs"
-    variant="light"
-    leftSection={<IconPlayerPlay size={14} />}
-    disabled={disabled || !url}
-    onClick={() => url && !disabled && onPlay?.(url)}
-  >
-    Preview sample
-  </Button>
-);
-
 export const VoiceClonePanel = () => {
   const { data: cloneVoices, isLoading } = useQuery<CloneVoice[]>({
     queryKey: ["clone-voices"],
@@ -74,56 +48,100 @@ export const VoiceClonePanel = () => {
     }
   });
 
-  const { apiKey } = useApiKey();
   const [inputFile, setInputFile] = useState<File | null>(null);
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
-  const [selectedSample, setSelectedSample] = useState<string | null>(null);
+  const [voiceSettings, setVoiceSettings] = useState<Record<string, any> | null>(null);
+  const [modelId, setModelId] = useState<string>("eleven_multilingual_sts_v2");
   const [outputs, setOutputs] = useState<VoiceCloneOutput[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<"upload" | "record">("upload");
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const voiceOptions = useMemo(
+    () => (cloneVoices ?? []).map((voice) => ({ value: voice.id, label: voice.name })),
+    [cloneVoices]
+  );
+  const selectedVoiceEntry = useMemo(
+    () => (cloneVoices ?? []).find((voice) => voice.id === selectedVoice) ?? null,
+    [cloneVoices, selectedVoice]
+  );
+  const modelOptions = useMemo(
+    () => [
+      { value: "eleven_multilingual_sts_v2", label: "Multilingual" },
+      { value: "eleven_english_sts_v2", label: "English" }
+    ],
+    []
+  );
+  const settingEntries = useMemo(() => {
+    if (!selectedVoiceEntry) return [];
+    const source = voiceSettings ?? selectedVoiceEntry.voice_settings ?? {};
+    return Object.entries(source).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [selectedVoiceEntry, voiceSettings]);
+
+  useEffect(() => {
+    if (!selectedVoice) {
+      setVoiceSettings(null);
+      setModelId("eleven_multilingual_sts_v2");
+      return;
+    }
+    const voice = (cloneVoices ?? []).find((entry) => entry.id === selectedVoice);
+    if (!voice) {
+      setVoiceSettings(null);
+      return;
+    }
+    setVoiceSettings({ ...(voice.voice_settings ?? {}) });
+  }, [selectedVoice, cloneVoices]);
+
+  const handleSettingChange = useCallback(
+    (key: string, value: number | boolean) => {
+      setVoiceSettings((prev) => {
+        const base = prev ?? { ...(selectedVoiceEntry?.voice_settings ?? {}) };
+        return { ...base, [key]: value };
+      });
+    },
+    [selectedVoiceEntry]
+  );
+
+  const resetVoiceSettings = useCallback(() => {
+    if (!selectedVoiceEntry) {
+      setVoiceSettings(null);
+      return;
+    }
+    setVoiceSettings({ ...(selectedVoiceEntry.voice_settings ?? {}) });
+  }, [selectedVoiceEntry]);
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (!inputFile) throw new Error("Please provide an input audio file");
-      if (!selectedVoice) throw new Error("Select a clone voice");
-      const sample = selectedSample || cloneVoices?.find((v) => v.name === selectedVoice)?.files?.[0];
-      if (!sample) throw new Error("No sample available for the selected voice");
+      if (!selectedVoiceEntry) throw new Error("Select a clone voice");
       const data = await toBase64(inputFile);
+      const settingsPayload = voiceSettings ?? selectedVoiceEntry.voice_settings ?? {};
       const payload = {
         input_audio: {
           filename: inputFile.name,
           data
         },
-        target_voice_audio: {
-          filename: sample,
-          path: `data/clone_voices/${selectedVoice}/${sample}`
-        },
-        pitch_shift: 0,
-        disable_watermark: true,
-        export_formats: ["wav"],
+        voice_id: selectedVoiceEntry.voice_id,
+        model_id: modelId,
+        voice_settings: Object.keys(settingsPayload).length ? settingsPayload : undefined,
+        export_formats: ["mp3", "wav"],
         return_audio_base64: false
       };
       const res = await api.post<{ outputs: FileResult[] }>("/voice/convert", payload);
       return res.data.outputs;
     },
     onSuccess: (data) => {
-      const timestamp = Date.now();
-      const wavOutputs = data.filter((file) => file.path.toLowerCase().endsWith(".wav"));
-      const primary = wavOutputs[0];
-
-      if (!primary) {
-        setError("No WAV output was returned from the server.");
+      if (!data.length) {
+        setError("No audio output was returned from the server.");
         setOutputs([]);
         return;
       }
-
-      setOutputs([
-        {
-          ...primary,
+      const timestamp = Date.now();
+      setOutputs(
+        data.map((file) => ({
+          ...file,
           renderedAt: timestamp
-        }
-      ]);
+        }))
+      );
       setError(null);
     },
     onError: (err: unknown) => {
@@ -132,23 +150,6 @@ export const VoiceClonePanel = () => {
       setOutputs([]);
     }
   });
-
-  const voiceOptions = (cloneVoices || []).map((voice) => ({ value: voice.name, label: voice.name }));
-  const rawSamples = cloneVoices?.find((voice) => voice.name === selectedVoice)?.files ?? [];
-  const sampleOptions = rawSamples.map((file) => ({ value: file, label: file }));
-  const selectedSampleUrl = buildCloneUrl(selectedVoice, selectedSample, apiKey);
-
-  const handlePreview = (url?: string) => {
-    if (!url) return;
-    const withTs = url.includes("?") ? `${url}&ts=${Date.now()}` : `${url}?ts=${Date.now()}`;
-    setPreviewUrl(withTs);
-  };
-
-  useEffect(() => {
-    if (!selectedSample && rawSamples.length > 0) {
-      setSelectedSample(rawSamples[0]);
-    }
-  }, [selectedSample, rawSamples]);
 
   return (
     <Stack gap="md">
@@ -209,31 +210,87 @@ export const VoiceClonePanel = () => {
             )}
           </Stack>
 
-          <Group grow>
+          <Stack gap="sm">
             <Select
               label="Clone voice"
               placeholder={isLoading ? "Loading voices..." : "Select voice"}
               data={voiceOptions}
               value={selectedVoice}
               onChange={(value) => {
-                setSelectedVoice(value);
-                setSelectedSample(null);
+                setSelectedVoice(value ?? null);
               }}
               withAsterisk
+              nothingFound="No clone voices"
             />
+            {selectedVoiceEntry?.description && (
+              <Text size="sm" c="dimmed">
+                {selectedVoiceEntry.description}
+              </Text>
+            )}
             <Select
-              label="Reference sample"
-              placeholder="Auto select"
-              data={sampleOptions}
-              value={selectedSample}
-              onChange={setSelectedSample}
+              label="Model"
+              placeholder="Choose ElevenLabs model"
+              data={modelOptions}
+              value={modelId}
+              onChange={(value) => setModelId(value ?? "eleven_multilingual_sts_v2")}
               disabled={!selectedVoice}
             />
-          </Group>
-
-          <Group justify="flex-end">
-            <PlayButton url={selectedSampleUrl} onPlay={handlePreview} disabled={!selectedVoice || !selectedSample} />
-          </Group>
+            {selectedVoice && (
+              <Stack gap="xs">
+                <Group justify="space-between" align="center">
+                  <Text size="sm" fw={500}>
+                    Voice settings
+                  </Text>
+                  <Button
+                    variant="subtle"
+                    size="xs"
+                    onClick={resetVoiceSettings}
+                    disabled={!selectedVoiceEntry}
+                  >
+                    Reset to defaults
+                  </Button>
+                </Group>
+                {settingEntries.length > 0 ? (
+                  settingEntries.map(([key, value]) => {
+                    if (typeof value === "boolean") {
+                      return (
+                        <Switch
+                          key={key}
+                          label={key}
+                          checked={Boolean(value)}
+                          onChange={(event) => handleSettingChange(key, event.currentTarget.checked)}
+                        />
+                      );
+                    }
+                    if (typeof value === "number") {
+                      return (
+                        <NumberInput
+                          key={key}
+                          label={key}
+                          value={value}
+                          onChange={(val) => {
+                            const numeric = typeof val === "number" ? val : Number(val);
+                            if (!Number.isNaN(numeric)) handleSettingChange(key, numeric);
+                          }}
+                          step={0.05}
+                          precision={2}
+                        />
+                      );
+                    }
+                    return (
+                      <Text key={key} size="sm">
+                        {key}: {String(value)}
+                      </Text>
+                    );
+                  })
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    This voice has no adjustable settings.
+                  </Text>
+                )}
+              </Stack>
+            )}
+          </Stack>
 
           <Group>
             <Button
@@ -292,15 +349,6 @@ export const VoiceClonePanel = () => {
         </Card>
       )}
 
-      {previewUrl && (
-        <audio
-          key={previewUrl}
-          src={previewUrl}
-          autoPlay
-          onEnded={() => setPreviewUrl(null)}
-          style={{ display: "none" }}
-        />
-      )}
     </Stack>
   );
 };
