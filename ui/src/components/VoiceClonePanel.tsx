@@ -1,21 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  Button,
-  Card,
-  Collapse,
-  FileInput,
-  Group,
-  Loader,
-  NumberInput,
-  Select,
-  Space,
-  Stack,
-  Table,
-  Text,
-  Title,
-  Switch
-} from "@mantine/core";
+import { Alert, Button, Card, FileInput, Group, Loader, NumberInput, Select, Space, Stack, Table, Text, Title, Switch } from "@mantine/core";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { CloneVoice, FileResult } from "@/lib/types";
@@ -112,11 +96,10 @@ export const VoiceClonePanel = () => {
   }, [selectedVoiceEntry]);
 
   useEffect(() => {
-    if (!cloneSettingsOpen) return;
     if (!selectedVoice) {
       setCloneSettingsOpen(false);
     }
-  }, [cloneSettingsOpen, selectedVoice]);
+  }, [selectedVoice]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -243,7 +226,7 @@ export const VoiceClonePanel = () => {
                 {cloneSettingsOpen ? "Hide settings" : "Show settings"}
               </Button>
             </Group>
-            <Collapse in={cloneSettingsOpen}>
+            {cloneSettingsOpen && (
               <Stack gap="sm">
                 {selectedVoiceEntry?.description && (
                   <Text size="sm" c="dimmed">
@@ -263,12 +246,7 @@ export const VoiceClonePanel = () => {
                     <Text size="sm" fw={500}>
                       Voice settings
                     </Text>
-                    <Button
-                      variant="subtle"
-                      size="xs"
-                      onClick={resetVoiceSettings}
-                      disabled={!selectedVoiceEntry}
-                    >
+                    <Button variant="subtle" size="xs" onClick={resetVoiceSettings} disabled={!selectedVoiceEntry}>
                       Reset to defaults
                     </Button>
                   </Group>
@@ -312,7 +290,7 @@ export const VoiceClonePanel = () => {
                   )}
                 </Stack>
               </Stack>
-            </Collapse>
+            )}
           </Stack>
 
           <Group>
