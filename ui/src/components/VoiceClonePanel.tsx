@@ -1,5 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, FileInput, Group, Loader, NumberInput, Select, Space, Stack, Table, Text, Title, Switch } from "@mantine/core";
+import {
+  Alert,
+  Button,
+  Card,
+  Collapse,
+  FileInput,
+  Group,
+  Loader,
+  NumberInput,
+  Select,
+  Space,
+  Stack,
+  Table,
+  Text,
+  Title,
+  Switch
+} from "@mantine/core";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { CloneVoice, FileResult } from "@/lib/types";
@@ -224,7 +240,7 @@ export const VoiceClonePanel = () => {
                 {cloneSettingsOpen ? "Hide settings" : "Show settings"}
               </Button>
             </Group>
-            {cloneSettingsOpen && (
+            <Collapse in={cloneSettingsOpen && Boolean(selectedVoice)}>
               <Stack gap="sm">
                 {selectedVoiceEntry?.description && (
                   <Text size="sm" c="dimmed">
@@ -288,7 +304,7 @@ export const VoiceClonePanel = () => {
                   )}
                 </Stack>
               </Stack>
-            )}
+            </Collapse>
           </Stack>
 
           <Group>
