@@ -1,0 +1,12 @@
+{
+    "ErikH10_Elizabeth30_CaseyJ31_Robbie10": {
+        "name": "ErikH10_Elizabeth30_CaseyJ31_Robbie10",
+        "voice_id": "BnZmQqhdzaVbLV4C411G",
+        "description": "ErikH10_Elizabeth30_CaseyJ31_Robbie10",
+        "voice_settings": {
+            "stability": 0.15,
+            "similarity_boost": 0.99,
+            "style": 0.85
+        }
+    }
+}

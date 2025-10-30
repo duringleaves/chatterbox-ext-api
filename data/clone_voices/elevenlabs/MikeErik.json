@@ -1,0 +1,12 @@
+{
+    "MikeErik": {
+        "name": "MikeErik",
+        "voice_id": "yzAatF7NyFptL6Elzswn",
+        "description": "MikeErik",
+        "voice_settings": {
+            "stability": 0.15,
+            "similarity_boost": 0.99,
+            "style": 0.85
+        }
+    }
+}

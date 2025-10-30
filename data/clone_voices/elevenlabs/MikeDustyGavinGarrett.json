@@ -1,0 +1,13 @@
+{
+    "MikeDustyGavinGarrett": 
+    {
+        "name": "Mike + Dusty + Gavin + Garrett",
+        "voice_id": "kwAdPtHemmy543SjyxC9",
+        "description": "Mike, Dusty, Gavin, Garrett (blended with RVC)",
+        "voice_settings": {
+            "stability": 0.15,
+            "similarity_boost": 0.99,
+            "style": 0.85
+        }
+    }
+}

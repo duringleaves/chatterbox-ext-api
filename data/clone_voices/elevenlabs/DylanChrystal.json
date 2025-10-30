@@ -1,0 +1,12 @@
+{
+    "DylanChrystal": {
+        "name": "Dylan + Chrystal",
+        "voice_id": "IRs1lSbL1swWoZ99yp2r",
+        "description": "Dylan30s + Chrystal 30s",
+        "voice_settings": {
+            "stability": 0.15,
+            "similarity_boost": 0.99,
+            "style": 0.85
+        }
+    }
+}

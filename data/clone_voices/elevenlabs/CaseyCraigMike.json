@@ -1,0 +1,12 @@
+{
+    "CaseyJ30_CraigHappy60_MikeTSmiley60": {
+        "name": "CaseyJ30_CraigHappy60_MikeTSmiley60",
+        "voice_id": "CupuVPoxOwDurYvDqjpm",
+        "description": "CaseyJ30_CraigHappy60_MikeTSmiley60",
+        "voice_settings" : {
+            "stability": 0.15,
+            "similarity_boost": 0.99,
+            "style": 0.85
+        }
+    }
+}

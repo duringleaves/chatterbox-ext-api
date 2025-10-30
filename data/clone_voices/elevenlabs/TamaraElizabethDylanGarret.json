@@ -1,0 +1,12 @@
+{
+    "Tamara59Elizabeth50Dylan30GarretR9": {
+        "name": "Tamara Elizabeth Dylan GarretR",
+        "voice_id": "9rmokdLzk8lcBH723P8s",
+        "description": "Tamara Elizabeth Dylan GarretR",
+        "voice_settings": {
+            "stability": 0.15,
+            "similarity_boost": 0.99,
+            "style": 0.85
+        }
+    }
+}

@@ -1,0 +1,12 @@
+{
+    "SeanDRobDeepBenM": {
+        "name": "Sean + Rob(Deep) + Ben",
+        "voice_id": "0QE9v8bpLU1DDbR7TQ5y",
+        "description": "SeanD(20) + RobDeep(10) + BenM(10)",
+        "voice_settings": {
+            "stability": 0.15,
+            "similarity_boost": 0.99,
+            "style": 0.85
+        }
+    }
+}

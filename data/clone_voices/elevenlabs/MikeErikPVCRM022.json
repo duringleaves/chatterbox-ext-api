@@ -1,0 +1,12 @@
+{
+    "MikeErikPVCRM022": {
+        "name": "MikeErikPVCRM022",
+        "voice_id": "J1ZFneF4idTNX7elKWUa",
+        "description": "MikeErikPVCRM022",
+        "voice_settings": {
+            "stability": 0.15,
+            "similarity_boost": 0.99,
+            "style": 0.85
+        }
+    }
+}
