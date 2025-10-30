@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Card,
+  Collapse,
   FileInput,
   Group,
   Loader,
@@ -55,6 +56,7 @@ export const VoiceClonePanel = () => {
   const [outputs, setOutputs] = useState<VoiceCloneOutput[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<"upload" | "record">("upload");
+  const [cloneSettingsOpen, setCloneSettingsOpen] = useState<boolean>(false);
 
   const voiceOptions = useMemo(
     () => (cloneVoices ?? []).map((voice) => ({ value: voice.id, label: voice.name })),
@@ -108,6 +110,13 @@ export const VoiceClonePanel = () => {
     }
     setVoiceSettings({ ...(selectedVoiceEntry.voice_settings ?? {}) });
   }, [selectedVoiceEntry]);
+
+  useEffect(() => {
+    if (!cloneSettingsOpen) return;
+    if (!selectedVoice) {
+      setCloneSettingsOpen(false);
+    }
+  }, [cloneSettingsOpen, selectedVoice]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -211,85 +220,99 @@ export const VoiceClonePanel = () => {
           </Stack>
 
           <Stack gap="sm">
-            <Select
-              label="Clone voice"
-              placeholder={isLoading ? "Loading voices..." : "Select voice"}
-              data={voiceOptions}
-              value={selectedVoice}
-              onChange={(value) => {
-                setSelectedVoice(value ?? null);
-              }}
-              withAsterisk
-              nothingFound="No clone voices"
-            />
-            {selectedVoiceEntry?.description && (
-              <Text size="sm" c="dimmed">
-                {selectedVoiceEntry.description}
-              </Text>
-            )}
-            <Select
-              label="Model"
-              placeholder="Choose ElevenLabs model"
-              data={modelOptions}
-              value={modelId}
-              onChange={(value) => setModelId(value ?? "eleven_multilingual_sts_v2")}
-              disabled={!selectedVoice}
-            />
-            {selectedVoice && (
-              <Stack gap="xs">
-                <Group justify="space-between" align="center">
-                  <Text size="sm" fw={500}>
-                    Voice settings
-                  </Text>
-                  <Button
-                    variant="subtle"
-                    size="xs"
-                    onClick={resetVoiceSettings}
-                    disabled={!selectedVoiceEntry}
-                  >
-                    Reset to defaults
-                  </Button>
-                </Group>
-                {settingEntries.length > 0 ? (
-                  settingEntries.map(([key, value]) => {
-                    if (typeof value === "boolean") {
-                      return (
-                        <Switch
-                          key={key}
-                          label={key}
-                          checked={Boolean(value)}
-                          onChange={(event) => handleSettingChange(key, event.currentTarget.checked)}
-                        />
-                      );
-                    }
-                    if (typeof value === "number") {
-                      return (
-                        <NumberInput
-                          key={key}
-                          label={key}
-                          value={value}
-                          onChange={(val) => {
-                            const numeric = typeof val === "number" ? val : Number(val);
-                            if (!Number.isNaN(numeric)) handleSettingChange(key, numeric);
-                          }}
-                          step={0.05}
-                          precision={2}
-                        />
-                      );
-                    }
-                    return (
-                      <Text key={key} size="sm">
-                        {key}: {String(value)}
-                      </Text>
-                    );
-                  })
-                ) : (
+            <Group justify="space-between" align="flex-end">
+              <Select
+                label="Clone voice"
+                placeholder={isLoading ? "Loading voices..." : "Select voice"}
+                data={voiceOptions}
+                value={selectedVoice}
+                onChange={(value) => {
+                  setSelectedVoice(value ?? null);
+                }}
+                withAsterisk
+                nothingFound="No clone voices"
+                style={{ flexGrow: 1 }}
+              />
+              <Button
+                variant="subtle"
+                size="xs"
+                color="violet"
+                onClick={() => setCloneSettingsOpen((prev) => !prev)}
+                disabled={!selectedVoice}
+              >
+                {cloneSettingsOpen ? "Hide settings" : "Show settings"}
+              </Button>
+            </Group>
+            <Collapse in={cloneSettingsOpen}>
+              <Stack gap="sm">
+                {selectedVoiceEntry?.description && (
                   <Text size="sm" c="dimmed">
-                    This voice has no adjustable settings.
+                    {selectedVoiceEntry.description}
                   </Text>
                 )}
+                <Select
+                  label="Model"
+                  placeholder="Choose ElevenLabs model"
+                  data={modelOptions}
+                  value={modelId}
+                  onChange={(value) => setModelId(value ?? "eleven_multilingual_sts_v2")}
+                  disabled={!selectedVoice}
+                />
+                <Stack gap="xs">
+                  <Group justify="space-between" align="center">
+                    <Text size="sm" fw={500}>
+                      Voice settings
+                    </Text>
+                    <Button
+                      variant="subtle"
+                      size="xs"
+                      onClick={resetVoiceSettings}
+                      disabled={!selectedVoiceEntry}
+                    >
+                      Reset to defaults
+                    </Button>
+                  </Group>
+                  {settingEntries.length > 0 ? (
+                    settingEntries.map(([key, value]) => {
+                      if (typeof value === "boolean") {
+                        return (
+                          <Switch
+                            key={key}
+                            label={key}
+                            checked={Boolean(value)}
+                            onChange={(event) => handleSettingChange(key, event.currentTarget.checked)}
+                          />
+                        );
+                      }
+                      if (typeof value === "number") {
+                        return (
+                          <NumberInput
+                            key={key}
+                            label={key}
+                            value={value}
+                            onChange={(val) => {
+                              const numeric = typeof val === "number" ? val : Number(val);
+                              if (!Number.isNaN(numeric)) handleSettingChange(key, numeric);
+                            }}
+                            step={0.05}
+                            precision={2}
+                          />
+                        );
+                      }
+                      return (
+                        <Text key={key} size="sm">
+                          {key}: {String(value)}
+                        </Text>
+                      );
+                    })
+                  ) : (
+                    <Text size="sm" c="dimmed">
+                      This voice has no adjustable settings.
+                    </Text>
+                  )}
+                </Stack>
               </Stack>
-            )}
+            </Collapse>
           </Stack>
 
           <Group>

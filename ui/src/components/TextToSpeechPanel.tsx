@@ -227,6 +227,7 @@ export const TextToSpeechPanel = () => {
     if (!cloneVoice) {
       setCloneVoiceSettings(null);
       setCloneModel("eleven_multilingual_sts_v2");
+      setCloneOptionsOpen(false);
       return;
     }
     const voice = cloneVoices.find((entry) => entry.id === cloneVoice);
@@ -478,16 +479,16 @@ export const TextToSpeechPanel = () => {
               {cloneOptionsOpen ? "Hide" : "Show"}
             </Button>
           </Group>
+          <Select
+            label="Clone voice"
+            placeholder="None"
+            data={[{ value: "", label: "None" }, ...cloneVoiceOptions]}
+            value={cloneVoice ?? ""}
+            onChange={(value) => setCloneVoice(value || null)}
+            nothingFound="No clone voices"
+          />
           <Collapse in={cloneOptionsOpen}>
             <Stack gap="md">
-              <Select
-                label="Clone voice"
-                placeholder="None"
-                data={[{ value: "", label: "None" }, ...cloneVoiceOptions]}
-                value={cloneVoice ?? ""}
-                onChange={(value) => setCloneVoice(value || null)}
-                nothingFound="No clone voices"
-              />
               {!cloneVoice && (
                 <Text size="sm" c="dimmed">
                   Select an ElevenLabs voice to enable cloning.
