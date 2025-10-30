@@ -96,9 +96,7 @@ export const VoiceClonePanel = () => {
   }, [selectedVoiceEntry]);
 
   useEffect(() => {
-    if (!selectedVoice) {
-      setCloneSettingsOpen(false);
-    }
+    setCloneSettingsOpen(false);
   }, [selectedVoice]);
 
   const mutation = useMutation({
