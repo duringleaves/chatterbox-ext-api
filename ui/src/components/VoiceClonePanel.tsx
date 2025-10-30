@@ -217,19 +217,10 @@ export const VoiceClonePanel = () => {
           </Stack>
 
           <Stack gap="sm">
-            <Group justify="space-between" align="flex-end">
-              <Select
-                label="Clone voice"
-                placeholder={isLoading ? "Loading voices..." : "Select voice"}
-                data={voiceOptions}
-                value={selectedVoice}
-                onChange={(value) => {
-                  setSelectedVoice(value ?? null);
-                }}
-                withAsterisk
-                nothingFound="No clone voices"
-                style={{ flexGrow: 1 }}
-              />
+            <Group justify="space-between" align="center">
+              <Text size="sm" fw={500}>
+                Clone options
+              </Text>
               <Button
                 variant="subtle"
                 size="xs"
@@ -240,6 +231,17 @@ export const VoiceClonePanel = () => {
                 {cloneSettingsOpen ? "Hide settings" : "Show settings"}
               </Button>
             </Group>
+            <Select
+              label="Clone voice"
+              placeholder={isLoading ? "Loading voices..." : "Select voice"}
+              data={voiceOptions}
+              value={selectedVoice}
+              onChange={(value) => {
+                setSelectedVoice(value ?? null);
+              }}
+              withAsterisk
+              nothingFound="No clone voices"
+            />
             <Collapse in={cloneSettingsOpen && Boolean(selectedVoice)}>
               <Stack gap="sm">
                 {selectedVoiceEntry?.description && (
