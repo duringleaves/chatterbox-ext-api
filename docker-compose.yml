@@ -19,6 +19,7 @@ services:
               capabilities: [gpu]
     environment:
       CHATTERBOX_API_KEY: ${CHATTERBOX_API_KEY}
+      CHATTERBOX_ADMIN_API_KEYS: ${CHATTERBOX_ADMIN_API_KEYS}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       HF_HUB_READ_TIMEOUT: "60"
       HF_HUB_DOWNLOAD_TIMEOUT: "60"
